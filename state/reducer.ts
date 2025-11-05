@@ -1,5 +1,6 @@
-import { AppState, Action, GameState, Item, Player, Enemy } from '../types';
+import { AppState, Action, GameState, Item, Player, CharacterClass } from '../types';
 import { initialState } from './initialState';
+import { CLASS_STATS } from '../constants';
 
 const appendToLog = (log: string[], message: string): string[] => {
     return [...log.slice(-10), message];
@@ -52,9 +53,29 @@ export const reducer = (state: AppState, action: Action): AppState => {
     case 'START_NEW_GAME':
       return {
         ...initialState,
-        gameState: GameState.LOADING,
-        log: ['Your adventure begins...'],
+        gameState: GameState.CHARACTER_CREATION,
+        log: [],
       };
+    
+    case 'CREATE_CHARACTER': {
+        const { name, class: characterClass, portrait } = action.payload;
+        const classStats = CLASS_STATS[characterClass];
+
+        const startingPlayer: Player = {
+            ...initialState.player,
+            ...classStats,
+            name,
+            class: characterClass,
+            portrait,
+        };
+
+        return {
+            ...state,
+            player: startingPlayer,
+            gameState: GameState.LOADING,
+            log: [`The adventure of ${name} the ${characterClass} begins...`],
+        };
+    }
     
     case 'LOAD_GAME':
       return {
@@ -141,7 +162,7 @@ export const reducer = (state: AppState, action: Action): AppState => {
         };
     }
 
-    case 'USE_ITEM':
+    case 'USE_ITEM': {
         const newInventory = [...state.player.inventory];
         const itemStack = { ...newInventory[action.payload.inventoryIndex] };
         itemStack.quantity -= 1;
@@ -152,6 +173,23 @@ export const reducer = (state: AppState, action: Action): AppState => {
             newInventory[action.payload.inventoryIndex] = itemStack;
         }
         return { ...state, player: { ...state.player, inventory: newInventory } };
+    }
+
+    case 'ENEMY_ACTION_HEAL': {
+      const { enemyIndex, healAmount } = action.payload;
+      const enemiesCopy = [...state.enemies];
+      const enemy = enemiesCopy[enemyIndex];
+      const newHp = Math.min(enemy.maxHp, enemy.hp + healAmount);
+      enemiesCopy[enemyIndex] = { ...enemy, hp: newHp };
+      return { ...state, enemies: enemiesCopy };
+    }
+
+    case 'ENEMY_ACTION_SHIELD': {
+      const { enemyIndex } = action.payload;
+      const enemiesCopy = [...state.enemies];
+      enemiesCopy[enemyIndex] = { ...enemiesCopy[enemyIndex], isShielded: true };
+      return { ...state, enemies: enemiesCopy };
+    }
 
     default:
       return state;

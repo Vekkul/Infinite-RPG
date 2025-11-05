@@ -9,7 +9,6 @@ export const SwordIcon = ({ className = "w-6 h-6" }: { className?: string }) => 
   </svg>
 );
 
-// FIX: Add title prop to ShieldIcon to support tooltips.
 export const ShieldIcon = ({ className = "w-6 h-6", title }: { className?: string; title?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     {title && <title>{title}</title>}
@@ -56,7 +55,6 @@ export const PotionIcon = ({ className = "w-6 h-6" }: { className?: string }) =>
   </svg>
 );
 
-// FIX: Add title prop to HealIcon to support tooltips.
 export const HealIcon = ({ className = "w-6 h-6", title }: { className?: string; title?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     {title && <title>{title}</title>}

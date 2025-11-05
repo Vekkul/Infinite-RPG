@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef, useReducer } from 'react';
-import { GameState, Player, Enemy, GameAction, Item, ItemType, SaveData } from './types';
+import { GameState, Player, Enemy, GameAction, Item, ItemType, SaveData, CharacterClass } from './types';
 import { generateScene, generateEncounter } from './services/geminiService';
 import { Inventory } from './components/Inventory';
 import { reducer } from './state/reducer';
 import { initialState } from './state/initialState';
 import { StartScreen } from './components/views/StartScreen';
+import { CharacterCreationScreen } from './components/views/CharacterCreationScreen';
 import { LoadingScreen } from './components/views/LoadingScreen';
 import { GameOverScreen } from './components/views/GameOverScreen';
 import { ExploringView } from './components/views/ExploringView';
@@ -23,6 +24,7 @@ const App: React.FC = () => {
     const [isResolvingCombat, setIsResolvingCombat] = useState(false); // Fix for combat loop
     const [isGeneratingPostCombatScene, setIsGeneratingPostCombatScene] = useState(false);
     const logRef = useRef<HTMLDivElement>(null);
+    const enemyTurnInProgress = useRef(false);
 
     useEffect(() => {
         const savedData = localStorage.getItem(SAVE_KEY);
@@ -46,7 +48,19 @@ const App: React.FC = () => {
 
     const startNewGame = useCallback(() => {
         dispatch({ type: 'START_NEW_GAME' });
-        generateScene(initialState.player).then(({ description, actions, foundItem }) => {
+    }, []);
+
+    const handleCharacterCreation = useCallback((details: { name: string; class: CharacterClass; portrait: string }) => {
+        dispatch({ type: 'CREATE_CHARACTER', payload: details });
+        
+        const tempPlayer = {
+            ...initialState.player,
+            name: details.name,
+            class: details.class,
+            portrait: details.portrait,
+        };
+
+        generateScene(tempPlayer).then(({ description, actions, foundItem }) => {
             dispatch({ type: 'SET_SCENE', payload: { description, actions } });
             if (foundItem) {
                 handleFoundItem(foundItem);
@@ -155,7 +169,7 @@ const App: React.FC = () => {
     
     // Effect to check for victory or trigger enemy turn after player action
     useEffect(() => {
-        if (gameState !== GameState.COMBAT || isPlayerTurn || isResolvingCombat) return;
+        if (gameState !== GameState.COMBAT || isPlayerTurn || isResolvingCombat || enemyTurnInProgress.current) return;
 
         const allEnemiesDefeated = enemies.every(e => e.hp <= 0);
         if (allEnemiesDefeated && enemies.length > 0) {
@@ -167,7 +181,7 @@ const App: React.FC = () => {
 
         // --- Enemy's turn logic ---
         const runEnemyTurns = async () => {
-            // Use a function to get the latest state inside the loop
+            enemyTurnInProgress.current = true;
             let currentHp = player.hp;
             for (let i = 0; i < enemies.length; i++) {
                  if (state.enemies[i].hp > 0 && currentHp > 0) { 
@@ -177,18 +191,29 @@ const App: React.FC = () => {
                     
                     if (enemy.isShielded) {
                         dispatch({ type: 'UPDATE_ENEMY', payload: { index: i, data: { isShielded: false } } });
+                        appendToLog(`${enemy.name}'s shield fades.`);
                     }
                     
                     const willUseAbility = enemy.ability && Math.random() < 0.35;
 
-                    if (willUseAbility) {
-                        // Handle abilities
-                        appendToLog(`${enemy.name} uses ${enemy.ability}!`);
+                    if (willUseAbility && enemy.ability) {
+                         appendToLog(`${enemy.name} uses ${enemy.ability}!`);
+                        switch (enemy.ability) {
+                            case 'HEAL':
+                                const healAmount = Math.floor(enemy.maxHp * 0.25); // Heal for 25%
+                                dispatch({ type: 'ENEMY_ACTION_HEAL', payload: { enemyIndex: i, healAmount } });
+                                appendToLog(`${enemy.name} recovers ${healAmount} HP.`);
+                                break;
+                            case 'SHIELD':
+                                dispatch({ type: 'ENEMY_ACTION_SHIELD', payload: { enemyIndex: i } });
+                                appendToLog(`${enemy.name} raises a magical shield!`);
+                                break;
+                        }
                     } else {
                         // Handle attack
                         const enemyDamage = Math.floor(enemy.attack + (Math.random() * 4 - 2));
                         let playerDamageTaken = player.isDefending ? Math.max(1, Math.floor(enemyDamage / 2)) : enemyDamage;
-                        const newPlayerHp = Math.max(0, player.hp - playerDamageTaken);
+                        const newPlayerHp = Math.max(0, currentHp - playerDamageTaken);
                         currentHp = newPlayerHp; // Update local HP tracker
                         dispatch({ type: 'UPDATE_PLAYER', payload: { hp: newPlayerHp } });
                         appendToLog(`${enemy.name} attacks! You take ${playerDamageTaken} damage.`);
@@ -196,6 +221,7 @@ const App: React.FC = () => {
                         if (newPlayerHp <= 0) {
                             dispatch({ type: 'SET_GAME_STATE', payload: GameState.GAME_OVER });
                             appendToLog('You have been defeated...');
+                            enemyTurnInProgress.current = false;
                             return; // Stop enemy turns if player is defeated
                         }
                     }
@@ -205,6 +231,7 @@ const App: React.FC = () => {
             if (currentHp > 0) { // Check if player is still alive
                 dispatch({ type: 'SET_PLAYER_TURN', payload: true });
             }
+            enemyTurnInProgress.current = false;
         };
 
         if (enemies.some(e => e.hp > 0)) {
@@ -232,6 +259,8 @@ const App: React.FC = () => {
         switch (gameState) {
             case GameState.START_SCREEN:
                 return <StartScreen onStart={startNewGame} onLoad={loadGame} saveFileExists={saveFileExists} />;
+            case GameState.CHARACTER_CREATION:
+                return <CharacterCreationScreen onCreate={handleCharacterCreation} />;
             case GameState.LOADING:
                 return <LoadingScreen />;
             case GameState.GAME_OVER:
@@ -245,7 +274,7 @@ const App: React.FC = () => {
         }
     };
 
-    const isScreenState = gameState === GameState.START_SCREEN || gameState === GameState.LOADING || gameState === GameState.GAME_OVER;
+    const isScreenState = gameState === GameState.START_SCREEN || gameState === GameState.LOADING || gameState === GameState.GAME_OVER || gameState === GameState.CHARACTER_CREATION;
 
     return (
         <main className="h-screen w-screen bg-gray-900 text-gray-200 p-4" style={{
@@ -264,7 +293,17 @@ const App: React.FC = () => {
                     {!isScreenState && (
                         <div className="md:col-span-1 flex flex-col gap-6 order-1">
                             <div className="bg-gray-800/70 p-4 rounded-lg border-2 border-blue-500 shadow-lg">
-                                <h2 className="text-2xl font-press-start text-blue-300 border-b-2 border-blue-400 pb-2 mb-4">Hero</h2>
+                                <div className="flex items-center gap-4 border-b-2 border-blue-400 pb-3 mb-4">
+                                    {player.portrait && (
+                                        <div className="w-20 h-20 bg-black rounded-md border-2 border-gray-600 flex-shrink-0">
+                                            <img src={`data:image/png;base64,${player.portrait}`} alt="Player Portrait" className="w-full h-full object-cover rounded-sm" />
+                                        </div>
+                                    )}
+                                    <div>
+                                        <h2 className="text-2xl font-press-start text-blue-300 overflow-hidden text-ellipsis whitespace-nowrap" title={player.name}>{player.name}</h2>
+                                        <p className="text-lg text-gray-300">{player.class}</p>
+                                    </div>
+                                </div>
                                 <div className="space-y-4">
                                     <div className="flex items-center gap-2"><HeartIcon className="w-5 h-5 text-red-500" /> <StatusBar label="HP" currentValue={player.hp} maxValue={player.maxHp} colorClass="bg-red-500" /></div>
                                     <div className="flex items-center gap-2"><StarIcon className="w-5 h-5 text-yellow-400" /> <StatusBar label="XP" currentValue={player.xp} maxValue={player.xpToNextLevel} colorClass="bg-yellow-400" /></div>

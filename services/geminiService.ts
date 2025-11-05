@@ -1,5 +1,5 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { Player, Enemy, GameAction, Item, ItemType, EnemyAbility } from '../types';
+import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { Player, Enemy, GameAction, Item, ItemType, EnemyAbility, CharacterClass } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
@@ -158,5 +158,36 @@ export const generateEncounter = async (player: Player): Promise<Enemy[]> => {
             attack: attack,
             isShielded: false,
         }];
+    }
+};
+
+export const generateCharacterPortrait = async (description: string, characterClass: CharacterClass): Promise<string> => {
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: {
+                parts: [
+                    {
+                        text: `A 16-bit pixel art portrait of a JRPG character. Class: ${characterClass}. Description: ${description}. Vibrant colors, fantasy style, head and shoulders view.`,
+                    },
+                ],
+            },
+            config: {
+                responseModalities: [Modality.IMAGE],
+                temperature: 0.9,
+            },
+        });
+
+        for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData) {
+                return part.inlineData.data;
+            }
+        }
+        throw new Error("No image data found in response.");
+
+    } catch (error) {
+        console.error("Error generating character portrait:", error);
+        // In case of an error, we'll return an empty string. The UI can handle this.
+        return "";
     }
 };
