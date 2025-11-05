@@ -1,6 +1,6 @@
 # Infinite JRPG
 
-![Character Customization](/assets/Infinite JRPG Vekkul.png)
+![Character Customization](assets/sample_custom.png)
 
 Embark on a never-ending adventure in a world crafted by AI. Explore, battle, and become a legend in a JRPG that's different every time you play. Powered by Google's Gemini, this game offers a unique, procedurally generated experience right in your browser.
 
