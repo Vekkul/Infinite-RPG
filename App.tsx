@@ -137,11 +137,16 @@ const App: React.FC = () => {
 
                 appendToLog(`You use a ${item.name} and recover ${healed} HP.`);
                 setIsInventoryOpen(false);
+
+                // Using an item in combat should end the player's turn.
+                if (gameState === GameState.COMBAT) {
+                    dispatch({ type: 'SET_PLAYER_TURN', payload: false });
+                }
             } else {
                 appendToLog(`Your HP is already full!`);
             }
         }
-    }, [player, appendToLog]);
+    }, [player, appendToLog, gameState]);
 
     const handleCombatAction = useCallback(async (action: 'attack' | 'defend' | 'flee' | 'ability', payload?: any) => {
         if (!isPlayerTurn || enemies.length === 0) return;
