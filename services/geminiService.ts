@@ -360,10 +360,49 @@ export const generateCharacterPortrait = async (description: string, characterCl
 
 export const generateWorldData = async (): Promise<WorldData | null> => {
     try {
-        // Step 1: Generate the structured world data (locations, connections)
+        // Step 1: Generate the world map image first.
+        const imageResponse = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: {
+                parts: [
+                    {
+                        text: `Generate a top-down, 16-bit pixel art style JRPG world map. The map should feature diverse biomes like lush forests, snowy mountains, villages, a large castle, and a coastline. IMPORTANT: The map image must be clean and contain absolutely no text, no labels, no icons, and no UI elements. It is a background image only.`,
+                    },
+                ],
+            },
+            config: {
+                responseModalities: [Modality.IMAGE],
+            },
+        });
+
+        let image = "";
+        let imageMimeType = "";
+        for (const part of imageResponse.candidates[0].content.parts) {
+            if (part.inlineData) {
+                image = part.inlineData.data;
+                imageMimeType = part.inlineData.mimeType;
+                break;
+            }
+        }
+
+        if (!image || !imageMimeType) throw new Error("No image data found in response for world map.");
+
+        // Step 2: Analyze the generated image to create coherent world data.
         const worldDataResponse = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Generate a JSON object that follows the provided schema to describe a fantasy JRPG world with 6 to 8 locations. The world MUST include a starting village named 'Oakhaven'. Set its ID to 'oakhaven' and designate it as the 'startLocationId'. The rest of the world should have diverse biomes like lush forests, snowy mountains, a large castle, and a coastline. Ensure all locations form a single connected graph.`,
+            contents: {
+                parts: [
+                    {
+                        inlineData: {
+                            mimeType: imageMimeType,
+                            data: image,
+                        },
+                    },
+                    {
+                        text: `You are a fantasy cartographer. Analyze the provided JRPG world map image. Identify 6 to 8 distinct locations like villages, castles, forests, or mountains. Create a JSON object that follows the provided schema. One location MUST be a starting village named 'Oakhaven' (id: 'oakhaven') and set as the 'startLocationId'. For each location, provide its x and y coordinates based on its position in the image. Ensure all locations form a single connected graph.`,
+                    },
+                ],
+            },
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: "application/json",
@@ -373,34 +412,6 @@ export const generateWorldData = async (): Promise<WorldData | null> => {
         });
 
         const worldJson = JSON.parse(worldDataResponse.text.trim());
-
-        // Step 2: Generate the world map image based on the generated data
-        const locationDescriptions = worldJson.locations.map((loc: MapLocation) => `${loc.name} (${loc.description})`).join('; ');
-        
-        const imageResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
-            contents: {
-                parts: [
-                    {
-                        text: `Generate a top-down, 16-bit pixel art style JRPG world map. The map should visually represent a world containing these locations: ${locationDescriptions}. Feature diverse biomes like forests, mountains, villages, castles, and coastlines. IMPORTANT: The map image must be clean and contain absolutely no text, no labels, no icons, and no UI elements. It is a background image only.`,
-                    },
-                ],
-            },
-            config: {
-                responseModalities: [Modality.IMAGE],
-            },
-        });
-
-
-        let image = "";
-        for (const part of imageResponse.candidates[0].content.parts) {
-            if (part.inlineData) {
-                image = part.inlineData.data;
-                break;
-            }
-        }
-
-        if (!image) throw new Error("No image data found in response for world map.");
         
         const locationsWithExplored = worldJson.locations.map((loc: Omit<MapLocation, 'isExplored'>) => ({...loc, isExplored: false}));
         
