@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef, useReducer } from 'react';
 import { GameState, Player, Enemy, GameAction, Item, ItemType, SaveData, CharacterClass, EnemyAbility, SocialChoice, AIPersonality, PlayerAbility } from './types';
 import { generateScene, generateEncounter, generateSocialEncounter, generateWorldData, generateExploreResult, generateSpeech } from './services/geminiService';
@@ -776,7 +777,7 @@ const App: React.FC = () => {
 
                     {/* Main Screen & Log */}
                     <div className={`flex flex-col bg-black/50 rounded-lg border-2 border-gray-600 shadow-inner order-2 md:row-span-2 ${isScreenState ? 'md:col-span-3 h-full' : 'md:col-span-2'} grow min-h-0`}>
-                        <div className="p-6 text-xl leading-relaxed flex-grow relative overflow-y-auto">
+                        <div className={`p-6 text-xl leading-relaxed relative overflow-y-auto ${isScreenState ? 'h-full' : 'h-1/2'}`}>
                            {renderGameContent()}
                            {!isScreenState && (
                                 <button
@@ -789,7 +790,7 @@ const App: React.FC = () => {
                             )}
                         </div>
                         {!isScreenState && (
-                            <div ref={logRef} className="h-48 bg-black/70 p-4 border-t-2 border-gray-600 overflow-y-auto text-lg space-y-1 shrink-0">
+                            <div ref={logRef} className="h-1/2 bg-black/70 p-4 border-t-2 border-gray-600 overflow-y-auto text-lg space-y-1">
                                 {log.map((entry, index) => <p key={index} className="text-gray-300 animate-fade-in-short">{`> ${entry}`}</p>)}
                             </div>
                         )}
