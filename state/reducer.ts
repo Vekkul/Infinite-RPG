@@ -1,6 +1,6 @@
-import { AppState, Action, GameState, Item, Player, CharacterClass, Enemy, RewardType, SocialChoice, MapLocation } from '../types';
+import { AppState, Action, GameState, Item, Player, CharacterClass, Enemy, RewardType, SocialChoice, MapLocation, PlayerAbility } from '../types';
 import { initialState } from './initialState';
-import { CLASS_STATS } from '../constants';
+import { CLASS_STATS, PLAYER_ABILITIES } from '../constants';
 
 const appendToLog = (log: string[], message: string): string[] => {
     return [...log.slice(-10), message];
@@ -166,46 +166,52 @@ export const reducer = (state: AppState, action: Action): AppState => {
         return { ...state, log: appendToLog(state.log, 'You failed to escape!') };
         
     case 'PLAYER_ACTION_ABILITY': {
-        const { abilityName, cost, targetIndex } = action.payload;
+        const { ability, targetIndex } = action.payload;
+        const abilityDetails = PLAYER_ABILITIES[ability];
+        if (!abilityDetails) return state;
+
         let newLog = [...state.log];
         const newEnemies = [...state.enemies];
         const target = newEnemies[targetIndex];
         let newPlayerState = {...state.player};
 
-        if (abilityName === 'Fireball') {
-            const damage = Math.floor(state.player.attack * 1.5 + (Math.random() * 8));
-            const damageTaken = target.isShielded ? Math.floor(damage / 2) : damage;
-            const newHp = Math.max(0, target.hp - damageTaken);
-            newEnemies[targetIndex] = { ...target, hp: newHp };
-            newPlayerState.mp = (newPlayerState.mp || 0) - cost;
-            newLog = appendToLog(newLog, `You cast Fireball on ${target.name} for ${damageTaken} damage!`);
-            if (newHp <= 0) {
-                 newLog = appendToLog(newLog, `${target.name} is defeated!`);
+        switch (ability) {
+            case PlayerAbility.FIREBALL: {
+                const damage = Math.floor(state.player.attack * 1.5 + (Math.random() * 8));
+                const damageTaken = target.isShielded ? Math.floor(damage / 2) : damage;
+                const newHp = Math.max(0, target.hp - damageTaken);
+                newEnemies[targetIndex] = { ...target, hp: newHp };
+                newPlayerState.mp = (newPlayerState.mp || 0) - abilityDetails.cost;
+                newLog = appendToLog(newLog, `You cast Fireball on ${target.name} for ${damageTaken} damage!`);
+                if (newHp <= 0) {
+                     newLog = appendToLog(newLog, `${target.name} is defeated!`);
+                }
+                break;
             }
-        }
-
-        if (abilityName === 'Quick Strike') {
-            const damage1 = Math.floor(state.player.attack * 0.8 + (Math.random() * 3));
-            const damage2 = Math.floor(state.player.attack * 0.8 + (Math.random() * 3));
-            const totalDamage = damage1 + damage2;
-            const damageTaken = target.isShielded ? Math.floor(totalDamage / 2) : totalDamage;
-            const newHp = Math.max(0, target.hp - damageTaken);
-            newEnemies[targetIndex] = { ...target, hp: newHp };
-            newPlayerState.ep = (newPlayerState.ep || 0) - cost;
-            newLog = appendToLog(newLog, `You use Quick Strike on ${target.name} for ${damage1} and ${damage2} damage!`);
-             if (newHp <= 0) {
-                 newLog = appendToLog(newLog, `${target.name} is defeated!`);
+            case PlayerAbility.QUICK_STRIKE: {
+                const damage1 = Math.floor(state.player.attack * 0.8 + (Math.random() * 3));
+                const damage2 = Math.floor(state.player.attack * 0.8 + (Math.random() * 3));
+                const totalDamage = damage1 + damage2;
+                const damageTaken = target.isShielded ? Math.floor(totalDamage / 2) : totalDamage;
+                const newHp = Math.max(0, target.hp - damageTaken);
+                newEnemies[targetIndex] = { ...target, hp: newHp };
+                newPlayerState.ep = (newPlayerState.ep || 0) - abilityDetails.cost;
+                newLog = appendToLog(newLog, `You use Quick Strike on ${target.name} for ${damage1} and ${damage2} damage!`);
+                 if (newHp <= 0) {
+                     newLog = appendToLog(newLog, `${target.name} is defeated!`);
+                }
+                break;
             }
-        }
-        
-        if (abilityName === 'Heavy Strike') {
-            const damage = Math.floor(state.player.attack * 1.8 + (Math.random() * 6));
-            const damageTaken = target.isShielded ? Math.floor(damage / 2) : damage;
-            const newHp = Math.max(0, target.hp - damageTaken);
-            newEnemies[targetIndex] = { ...target, hp: newHp };
-            newLog = appendToLog(newLog, `You use Heavy Strike on ${target.name} for ${damageTaken} damage!`);
-            if (newHp <= 0) {
-                 newLog = appendToLog(newLog, `${target.name} is defeated!`);
+            case PlayerAbility.HEAVY_STRIKE: {
+                const damage = Math.floor(state.player.attack * 1.8 + (Math.random() * 6));
+                const damageTaken = target.isShielded ? Math.floor(damage / 2) : damage;
+                const newHp = Math.max(0, target.hp - damageTaken);
+                newEnemies[targetIndex] = { ...target, hp: newHp };
+                newLog = appendToLog(newLog, `You use Heavy Strike on ${target.name} for ${damageTaken} damage!`);
+                if (newHp <= 0) {
+                     newLog = appendToLog(newLog, `${target.name} is defeated!`);
+                }
+                break;
             }
         }
 
@@ -353,9 +359,6 @@ export const reducer = (state: AppState, action: Action): AppState => {
             player: updatedPlayer,
             log: newLog,
             socialEncounter: null,
-            storyText: choice.outcome,
-            actions: [],
-            gameState: GameState.EXPLORING,
         };
     }
 

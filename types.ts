@@ -32,6 +32,12 @@ export enum AIPersonality {
   WILD = 'WILD',
 }
 
+export enum PlayerAbility {
+    FIREBALL = 'Fireball',
+    HEAVY_STRIKE = 'Heavy Strike',
+    QUICK_STRIKE = 'Quick Strike',
+}
+
 export interface Item {
   name: string;
   description: string;
@@ -157,7 +163,7 @@ export type Action =
   | { type: 'SET_ENEMIES'; payload: Enemy[] }
   | { type: 'PLAYER_ACTION_DEFEND' }
   | { type: 'PLAYER_ACTION_FLEE_FAILURE' }
-  | { type: 'PLAYER_ACTION_ABILITY'; payload: { abilityName: string; cost: number; targetIndex: number } }
+  | { type: 'PLAYER_ACTION_ABILITY'; payload: { ability: PlayerAbility; targetIndex: number } }
   | { type: 'SET_PLAYER_TURN'; payload: boolean }
   | { type: 'UPDATE_ENEMY'; payload: { index: number; data: Partial<Enemy> } }
   | { type: 'UPDATE_PLAYER'; payload: Partial<Player> }

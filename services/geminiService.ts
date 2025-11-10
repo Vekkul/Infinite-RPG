@@ -3,6 +3,10 @@ import { Player, Enemy, GameAction, Item, ItemType, EnemyAbility, CharacterClass
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
+const TEXT_MODEL = 'gemini-2.5-flash';
+const IMAGE_MODEL = 'gemini-2.5-flash-image';
+const TTS_MODEL = 'gemini-2.5-flash-preview-tts';
+
 const SYSTEM_INSTRUCTION = "You are a creative and engaging dungeon master for a classic fantasy JRPG. Your descriptions are vivid, your monsters are menacing, and your scenarios are intriguing. Keep the tone epic and adventurous, with a slightly retro feel. Responses must adhere to the provided JSON schema.";
 
 const itemSchema = {
@@ -186,7 +190,7 @@ const worldDataSchema = {
 export const generateExploreResult = async (player: Player, action: GameAction): Promise<{ outcome: string; foundItem?: Omit<Item, 'quantity'>; triggerCombat: boolean; triggerSocial: boolean; isFallback?: boolean; }> => {
     try {
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: TEXT_MODEL,
             contents: `The player, a level ${player.level} ${player.class}, decided to perform the action: "${action.label}". Generate a contextually appropriate outcome. The action should not always lead to combat; for example, reading a sign should provide information, not start a fight. The outcome description will replace the current scene text.`,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
@@ -220,7 +224,7 @@ export const generateExploreResult = async (player: Player, action: GameAction):
 export const generateScene = async (player: Player, location: MapLocation): Promise<{ description: string; actions: GameAction[]; foundItem?: Omit<Item, 'quantity'>; isFallback?: boolean; }> => {
     try {
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: TEXT_MODEL,
             contents: `Generate a new scene for a JRPG player at level ${player.level}. The player has just arrived at ${location.name}: "${location.description}". Generate a vivid description and 1-2 thematically appropriate local actions.`,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
@@ -256,7 +260,7 @@ export const generateEncounter = async (player: Player): Promise<{ enemies: Enem
         const numMonsters = Math.floor(Math.random() * 3) + 1; // 1, 2, or 3
 
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: TEXT_MODEL,
             contents: `Generate a fantasy JRPG monster encounter for a player who is level ${player.level}. Generate exactly ${numMonsters} monster(s). Some might have special abilities like healing, shielding, multi-attack, or drain life. The encounter should be a suitable challenge.`,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
@@ -294,7 +298,7 @@ export const generateEncounter = async (player: Player): Promise<{ enemies: Enem
 export const generateSocialEncounter = async (player: Player): Promise<{ encounter: SocialEncounter; isFallback?: boolean; }> => {
     try {
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: TEXT_MODEL,
             contents: `Generate a social, non-combat encounter for a level ${player.level} ${player.class} in a JRPG. The situation should present a clear choice with two distinct outcomes. One choice might offer a small reward like XP or an item.`,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
@@ -331,7 +335,7 @@ export const generateSocialEncounter = async (player: Player): Promise<{ encount
 export const generateCharacterPortrait = async (description: string, characterClass: CharacterClass): Promise<{ portrait: string; isFallback?: boolean; }> => {
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
+            model: IMAGE_MODEL,
             contents: {
                 parts: [
                     {
@@ -365,7 +369,7 @@ export const generateWorldData = async (): Promise<WorldData | null> => {
     try {
         // Step 1: Generate the world map image first.
         const imageResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
+            model: IMAGE_MODEL,
             contents: {
                 parts: [
                     {
@@ -395,7 +399,7 @@ export const generateWorldData = async (): Promise<WorldData | null> => {
 
         // Step 2: Analyze the generated image to create coherent world data.
         const worldDataResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: TEXT_MODEL,
             contents: {
                 parts: [
                     {
@@ -437,7 +441,7 @@ export const generateWorldData = async (): Promise<WorldData | null> => {
 export const generateSpeech = async (text: string): Promise<{ audio: string; isFallback: boolean; }> => {
     try {
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash-preview-tts",
+            model: TTS_MODEL,
             contents: [{ parts: [{ text: `Say with the tone of an epic fantasy narrator: ${text}` }] }],
             config: {
                 responseModalities: [Modality.AUDIO],

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useReducer } from 'react';
-import { GameState, Player, Enemy, GameAction, Item, ItemType, SaveData, CharacterClass, EnemyAbility, SocialChoice, AIPersonality } from './types';
+import { GameState, Player, Enemy, GameAction, Item, ItemType, SaveData, CharacterClass, EnemyAbility, SocialChoice, AIPersonality, PlayerAbility } from './types';
 import { generateScene, generateEncounter, generateSocialEncounter, generateWorldData, generateExploreResult, generateSpeech } from './services/geminiService';
 import { Inventory } from './components/Inventory';
 import { reducer } from './state/reducer';
@@ -55,9 +55,9 @@ const App: React.FC = () => {
     const [saveFileExists, setSaveFileExists] = useState(false);
     const [isResolvingCombat, setIsResolvingCombat] = useState(false);
     const [isGeneratingPostCombatScene, setIsGeneratingPostCombatScene] = useState(false);
-    const [isGeneratingPostSocialScene, setIsGeneratingPostSocialScene] = useState(false);
     const [showLevelUp, setShowLevelUp] = useState(false);
     const [isTtsEnabled, setIsTtsEnabled] = useState(false);
+    const [isSpeaking, setIsSpeaking] = useState(false);
 
     const logRef = useRef<HTMLDivElement>(null);
     const enemyTurnInProgress = useRef(false);
@@ -89,34 +89,34 @@ const App: React.FC = () => {
     }, [player.level]);
 
     const playSpeech = useCallback(async (text: string) => {
-        if (!text) return;
+        if (!text || !audioContextRef.current) return;
 
+        // Stop any previous speech
         if (currentSpeechSourceRef.current) {
             currentSpeechSourceRef.current.stop();
             currentSpeechSourceRef.current = null;
         }
 
-        if (!audioContextRef.current) {
-            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-        }
-        const ctx = audioContextRef.current;
-        
+        setIsSpeaking(true);
+        spokenTextRef.current = text; // Set ref immediately to prevent re-triggering from useEffect
+
         const { audio, isFallback } = await generateSpeech(text);
         if (isFallback || !audio) {
             console.error("Failed to generate or received empty audio.");
+            setIsSpeaking(false);
             return;
         }
 
         try {
             const audioBuffer = await decodeAudioData(
                 decode(audio),
-                ctx,
+                audioContextRef.current,
                 24000,
                 1,
             );
-            const source = ctx.createBufferSource();
+            const source = audioContextRef.current.createBufferSource();
             source.buffer = audioBuffer;
-            source.connect(ctx.destination);
+            source.connect(audioContextRef.current.destination);
             source.start();
 
             currentSpeechSourceRef.current = source;
@@ -124,34 +124,60 @@ const App: React.FC = () => {
                 if (currentSpeechSourceRef.current === source) {
                     currentSpeechSourceRef.current = null;
                 }
+                setIsSpeaking(false);
             };
         } catch (error) {
             console.error("Error playing audio:", error);
+            setIsSpeaking(false);
         }
     }, []);
 
-    useEffect(() => {
-        const canPlaySpeech = isTtsEnabled && storyText && 
-                              gameState !== GameState.LOADING && 
-                              gameState !== GameState.START_SCREEN && 
-                              gameState !== GameState.CHARACTER_CREATION;
+    const handleToggleTts = () => {
+        // Initialize AudioContext on first user interaction with the button
+        if (!audioContextRef.current) {
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        }
 
-        if (canPlaySpeech) {
-            // Only play speech if the text has changed. This prevents re-playing on re-renders.
-            if (storyText !== spokenTextRef.current) {
-                playSpeech(storyText);
-                spokenTextRef.current = storyText;
-            }
+        const willBeEnabled = !isTtsEnabled;
+        setIsTtsEnabled(willBeEnabled);
+
+        if (willBeEnabled) {
+            // Clear the ref to allow the current text to be spoken upon enabling
+            spokenTextRef.current = '';
         } else {
-            // If TTS is disabled or conditions aren't met, stop any playing speech.
+            // If turning off, stop any current speech
             if (currentSpeechSourceRef.current) {
                 currentSpeechSourceRef.current.stop();
                 currentSpeechSourceRef.current = null;
             }
-            // Resetting the ref ensures that if TTS is toggled back on for the same text, it will play.
-            spokenTextRef.current = ''; 
+            setIsSpeaking(false);
         }
-    }, [storyText, isTtsEnabled, gameState, playSpeech]);
+    };
+
+    useEffect(() => {
+        const canPlaySpeech = isTtsEnabled && storyText &&
+            gameState !== GameState.LOADING &&
+            gameState !== GameState.START_SCREEN &&
+            gameState !== GameState.CHARACTER_CREATION;
+
+        if (canPlaySpeech) {
+            if (storyText !== spokenTextRef.current) {
+                playSpeech(storyText);
+            }
+        } else {
+            // If conditions aren't met (e.g., loading, TTS disabled), stop any playing speech.
+            if (currentSpeechSourceRef.current) {
+                currentSpeechSourceRef.current.stop();
+                currentSpeechSourceRef.current = null;
+            }
+            // If the state changes to a non-playable one while speaking, reset the speaking flag.
+            if (isSpeaking) {
+                setIsSpeaking(false);
+            }
+            // We don't clear spokenTextRef here to prevent replays after transient states like loading.
+            // The toggle handler is responsible for clearing it when the user intentionally reenables TTS.
+        }
+    }, [storyText, isTtsEnabled, gameState, playSpeech, isSpeaking]);
     
     const appendToLog = useCallback((message: string) => {
         dispatch({ type: 'ADD_LOG', payload: message });
@@ -379,13 +405,16 @@ const App: React.FC = () => {
         }
     }, [player, appendToLog, gameState]);
 
-    const handleCombatAction = useCallback(async (action: 'attack' | 'defend' | 'flee' | 'ability', payload?: any) => {
+    const handleCombatAction = useCallback(async (
+        action: 'attack' | 'defend' | 'flee' | 'ability',
+        payload?: { ability?: PlayerAbility; targetIndex?: number; onDamageDealt?: (damage: number, isCrit: boolean) => void; }
+    ) => {
         if (!isPlayerTurn || enemies.length === 0) return;
-        
+
         dispatch({ type: 'SET_PLAYER_TURN', payload: false });
         dispatch({ type: 'UPDATE_PLAYER', payload: { isDefending: false } });
 
-        if (action === 'attack' && payload.targetIndex !== undefined) {
+        if (action === 'attack' && payload?.targetIndex !== undefined) {
             const target = enemies[payload.targetIndex];
             const isCrit = Math.random() < CRIT_CHANCE;
             let damage = Math.floor(player.attack + (Math.random() * 5 - 2));
@@ -394,7 +423,7 @@ const App: React.FC = () => {
             }
             const damageTaken = target.isShielded ? Math.floor(damage / 2) : damage;
             const newHp = Math.max(0, target.hp - damageTaken);
-            
+
             payload.onDamageDealt?.(damageTaken, isCrit);
 
             dispatch({ type: 'UPDATE_ENEMY', payload: { index: payload.targetIndex, data: { hp: newHp } } });
@@ -402,8 +431,8 @@ const App: React.FC = () => {
             if (newHp <= 0) {
                 appendToLog(`${target.name} is defeated!`);
             }
-        } else if (action === 'ability' && payload.targetIndex !== undefined) {
-            dispatch({ type: 'PLAYER_ACTION_ABILITY', payload });
+        } else if (action === 'ability' && payload?.targetIndex !== undefined && payload.ability) {
+            dispatch({ type: 'PLAYER_ACTION_ABILITY', payload: { ability: payload.ability, targetIndex: payload.targetIndex } });
         } else if (action === 'defend') {
             dispatch({ type: 'PLAYER_ACTION_DEFEND' });
         } else if (action === 'flee') {
@@ -437,10 +466,44 @@ const App: React.FC = () => {
         }
     }, [player, enemies, appendToLog, handleFoundItem, isPlayerTurn, worldData, playerLocationId, handleFallback]);
 
-    const handleSocialChoice = useCallback((choice: SocialChoice) => {
+    const handleSocialChoice = useCallback(async (choice: SocialChoice) => {
+        dispatch({ type: 'SET_GAME_STATE', payload: GameState.LOADING });
+    
+        // Apply reward, update log, update player stats from the choice
         dispatch({ type: 'RESOLVE_SOCIAL_CHOICE', payload: { choice } });
-        setIsGeneratingPostSocialScene(true);
-    }, []);
+    
+        // Now, generate the next set of actions for the current location
+        if (worldData && playerLocationId) {
+            const currentLocation = worldData.locations.find(l => l.id === playerLocationId);
+            if (currentLocation) {
+                // We call generateScene but we only really care about the actions and potential item.
+                // The description it generates will be ignored.
+                const { actions: localActions, foundItem, isFallback } = await generateScene(player, currentLocation);
+                if (isFallback) handleFallback();
+                
+                const moveActions = worldData.connections
+                    .filter(c => c.from === playerLocationId || c.to === playerLocationId)
+                    .map(c => {
+                        const targetId = c.from === playerLocationId ? c.to : c.from;
+                        const targetLocation = worldData.locations.find(l => l.id === targetId);
+                        return {
+                            label: `Go to ${targetLocation?.name || '???' }`,
+                            type: 'move' as const,
+                            targetLocationId: targetId
+                        };
+                    });
+                
+                // Set the scene with the outcome of the choice as the main description
+                dispatch({ type: 'SET_SCENE', payload: { description: choice.outcome, actions: [...localActions, ...moveActions] } });
+    
+                if (foundItem) {
+                    handleFoundItem(foundItem);
+                }
+            }
+        }
+        
+        dispatch({ type: 'SET_GAME_STATE', payload: GameState.EXPLORING });
+    }, [worldData, playerLocationId, player, handleFoundItem, handleFallback]);
 
     const handleEnemyTurns = useCallback(async () => {
         enemyTurnInProgress.current = true;
@@ -622,15 +685,6 @@ const App: React.FC = () => {
             });
         }
     }, [isGeneratingPostCombatScene, generatePostEventScene]);
-
-    // Effect to generate the next scene after a social encounter
-    useEffect(() => {
-        if (isGeneratingPostSocialScene) {
-            generatePostEventScene().then(() => {
-                setIsGeneratingPostSocialScene(false);
-            });
-        }
-    }, [isGeneratingPostSocialScene, generatePostEventScene]);
     
     const renderGameContent = () => {
         switch (gameState) {
@@ -726,11 +780,11 @@ const App: React.FC = () => {
                            {renderGameContent()}
                            {!isScreenState && (
                                 <button
-                                    onClick={() => setIsTtsEnabled(prev => !prev)}
-                                    className="absolute top-3 right-3 text-gray-400 hover:text-white transition-colors z-10"
+                                    onClick={handleToggleTts}
+                                    className={`absolute top-3 right-3 text-gray-400 hover:text-white transition-colors z-10 ${isSpeaking ? 'animate-pulse' : ''}`}
                                     aria-label={isTtsEnabled ? 'Disable text-to-speech' : 'Enable text-to-speech'}
                                 >
-                                    {isTtsEnabled ? <SpeakerOnIcon className="w-7 h-7" /> : <SpeakerOffIcon className="w-7 h-7" />}
+                                    {isTtsEnabled ? <SpeakerOnIcon className="w-7 h-7 text-green-400" /> : <SpeakerOffIcon className="w-7 h-7" />}
                                 </button>
                             )}
                         </div>

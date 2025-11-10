@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Enemy, EnemyAbility, Player, CharacterClass } from '../../types';
+import { Enemy, EnemyAbility, Player, CharacterClass, PlayerAbility } from '../../types';
 import { StatusBar } from '../StatusBar';
 import { HealIcon, ShieldIcon, SwordIcon, RunIcon, FireIcon, BoltIcon } from '../icons';
 import { useTypewriter } from '../../hooks/useTypewriter';
+import { PLAYER_ABILITIES } from '../../constants';
 
 interface CombatViewProps {
   storyText: string;
@@ -22,7 +23,7 @@ interface DamagePopup {
 export const CombatView: React.FC<CombatViewProps> = ({ storyText, enemies, player, isPlayerTurn, onCombatAction }) => {
     const [view, setView] = useState<'main' | 'targeting' | 'abilities'>('main');
     const [actionType, setActionType] = useState<'attack' | 'ability'>('attack');
-    const [selectedAbility, setSelectedAbility] = useState<{name: string, cost: number} | null>(null);
+    const [selectedAbility, setSelectedAbility] = useState<PlayerAbility | null>(null);
     const [damagePopups, setDamagePopups] = useState<DamagePopup[]>([]);
 
     const displayedText = useTypewriter(storyText, 30);
@@ -36,14 +37,13 @@ export const CombatView: React.FC<CombatViewProps> = ({ storyText, enemies, play
         }, 1000); // Corresponds to animation duration
     };
 
-    const handleActionClick = (type: 'attack' | 'ability', ability: {name: string, cost: number} | null = null) => {
+    const handleActionClick = (type: 'attack' | 'ability', ability: PlayerAbility | null = null) => {
         setActionType(type);
         setSelectedAbility(ability);
         if (activeEnemies.length === 1) {
             const targetIndex = enemies.findIndex(e => e.hp > 0);
             onCombatAction(type, {
-                abilityName: ability?.name,
-                cost: ability?.cost,
+                ability: ability,
                 targetIndex: targetIndex,
                 onDamageDealt: (damage: number, isCrit: boolean) => createDamagePopup(damage, isCrit, targetIndex)
             });
@@ -54,8 +54,7 @@ export const CombatView: React.FC<CombatViewProps> = ({ storyText, enemies, play
     
     const handleTargetSelect = (index: number) => {
         onCombatAction(actionType, {
-            abilityName: selectedAbility?.name,
-            cost: selectedAbility?.cost,
+            ability: selectedAbility,
             targetIndex: index,
             onDamageDealt: (damage: number, isCrit: boolean) => createDamagePopup(damage, isCrit, index)
         });
@@ -65,17 +64,18 @@ export const CombatView: React.FC<CombatViewProps> = ({ storyText, enemies, play
     
     const renderAbilities = () => {
         if (player.class === CharacterClass.WARRIOR) {
-            return <button onClick={() => handleActionClick('ability', {name: 'Heavy Strike', cost: 0})} className="flex items-center justify-center gap-2 text-lg bg-red-800 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg border-2 border-red-600 transition-all transform hover:scale-105"><SwordIcon/> Heavy Strike</button>
+            const ability = PLAYER_ABILITIES[PlayerAbility.HEAVY_STRIKE];
+            return <button onClick={() => handleActionClick('ability', ability.name)} className="flex items-center justify-center gap-2 text-lg bg-red-800 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg border-2 border-red-600 transition-all transform hover:scale-105"><SwordIcon/> {ability.name}</button>
         }
         if (player.class === CharacterClass.MAGE) {
-            const cost = 10;
-            const disabled = (player.mp ?? 0) < cost;
-            return <button onClick={() => handleActionClick('ability', {name: 'Fireball', cost})} disabled={disabled} className="flex items-center justify-center gap-2 text-lg bg-orange-700 hover:bg-orange-600 disabled:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg border-2 border-orange-500 transition-all transform hover:scale-105"><FireIcon/> Fireball ({cost} MP)</button>
+            const ability = PLAYER_ABILITIES[PlayerAbility.FIREBALL];
+            const disabled = (player.mp ?? 0) < ability.cost;
+            return <button onClick={() => handleActionClick('ability', ability.name)} disabled={disabled} className="flex items-center justify-center gap-2 text-lg bg-orange-700 hover:bg-orange-600 disabled:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg border-2 border-orange-500 transition-all transform hover:scale-105"><FireIcon/> {ability.name} ({ability.cost} MP)</button>
         }
         if (player.class === CharacterClass.ROGUE) {
-             const cost = 5;
-             const disabled = (player.ep ?? 0) < cost;
-            return <button onClick={() => handleActionClick('ability', {name: 'Quick Strike', cost})} disabled={disabled} className="flex items-center justify-center gap-2 text-lg bg-green-700 hover:bg-green-600 disabled:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg border-2 border-green-500 transition-all transform hover:scale-105"><BoltIcon/> Quick Strike ({cost} EP)</button>
+             const ability = PLAYER_ABILITIES[PlayerAbility.QUICK_STRIKE];
+             const disabled = (player.ep ?? 0) < ability.cost;
+            return <button onClick={() => handleActionClick('ability', ability.name)} disabled={disabled} className="flex items-center justify-center gap-2 text-lg bg-green-700 hover:bg-green-600 disabled:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg border-2 border-green-500 transition-all transform hover:scale-105"><BoltIcon/> {ability.name} ({ability.cost} EP)</button>
         }
         return null;
     }

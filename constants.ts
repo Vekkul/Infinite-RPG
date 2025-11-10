@@ -1,4 +1,4 @@
-import { Player, CharacterClass } from './types';
+import { Player, CharacterClass, PlayerAbility } from './types';
 
 export const JRPG_SAVE_KEY = 'jrpgSaveDataV2';
 
@@ -37,6 +37,35 @@ export const CLASS_STATS: Record<CharacterClass, Partial<Player>> = {
         ep: 20,
     }
 };
+
+export interface AbilityDetails {
+    name: PlayerAbility;
+    cost: number;
+    resource: 'MP' | 'EP' | 'None';
+    description: string;
+}
+
+export const PLAYER_ABILITIES: Record<PlayerAbility, AbilityDetails> = {
+    [PlayerAbility.HEAVY_STRIKE]: {
+        name: PlayerAbility.HEAVY_STRIKE,
+        cost: 0,
+        resource: 'None',
+        description: 'A powerful blow that deals significant damage.'
+    },
+    [PlayerAbility.FIREBALL]: {
+        name: PlayerAbility.FIREBALL,
+        cost: 10,
+        resource: 'MP',
+        description: 'Hurls a ball of fire, dealing magical damage.'
+    },
+    [PlayerAbility.QUICK_STRIKE]: {
+        name: PlayerAbility.QUICK_STRIKE,
+        cost: 5,
+        resource: 'EP',
+        description: 'Two rapid strikes that deal moderate damage.'
+    }
+};
+
 
 // Game Mechanics
 export const CRIT_CHANCE = 0.1;
