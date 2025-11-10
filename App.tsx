@@ -587,10 +587,10 @@ const App: React.FC = () => {
                         </h1>
                     </div>
                 )}
-                <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 h-full p-4 md:p-6 ${isScreenState ? 'items-center' : ''}`}>
+                <div className={`flex flex-col md:grid md:grid-cols-3 gap-6 h-full p-4 md:p-6 ${isScreenState ? 'md:items-center' : ''}`}>
                     {/* Player Status */}
                     {!isScreenState && (
-                        <div className="md:col-span-1 flex flex-col gap-6 order-1">
+                        <div className="md:col-span-1 flex flex-col gap-6 order-1 shrink-0">
                             <div className="bg-gray-800/70 p-4 rounded-lg border-2 border-blue-500 shadow-lg">
                                 <div className="flex items-center gap-4 border-b-2 border-blue-400 pb-3 mb-4">
                                     {player.portrait && (
@@ -622,12 +622,12 @@ const App: React.FC = () => {
                     )}
 
                     {/* Main Screen & Log */}
-                    <div className={`flex flex-col h-full bg-black/50 rounded-lg border-2 border-gray-600 shadow-inner order-2 md:row-span-2 ${isScreenState ? 'md:col-span-3' : 'md:col-span-2'}`}>
-                        <div className="p-6 text-xl leading-relaxed flex-grow relative">
+                    <div className={`flex flex-col bg-black/50 rounded-lg border-2 border-gray-600 shadow-inner order-2 md:row-span-2 ${isScreenState ? 'md:col-span-3 h-full' : 'md:col-span-2'} grow min-h-0`}>
+                        <div className="p-6 text-xl leading-relaxed flex-grow relative overflow-y-auto">
                            {renderGameContent()}
                         </div>
                         {!isScreenState && (
-                            <div ref={logRef} className="h-48 bg-black/70 p-4 border-t-2 border-gray-600 overflow-y-auto text-lg space-y-1">
+                            <div ref={logRef} className="h-48 bg-black/70 p-4 border-t-2 border-gray-600 overflow-y-auto text-lg space-y-1 shrink-0">
                                 {log.map((entry, index) => <p key={index} className="text-gray-300 animate-fade-in-short">{`> ${entry}`}</p>)}
                             </div>
                         )}
@@ -635,7 +635,7 @@ const App: React.FC = () => {
                     
                     {/* Actions Panel */}
                      {!isScreenState && (
-                        <div className="md:col-span-1 flex flex-col items-center justify-start gap-2 order-3 pt-4">
+                        <div className="md:col-span-1 flex flex-col items-center justify-start gap-2 order-3 pt-4 shrink-0">
                             <div className="w-full space-y-2">
                                 {(gameState === GameState.EXPLORING || gameState === GameState.COMBAT) && (
                                     <button onClick={() => setIsInventoryOpen(true)} className="w-full text-lg bg-purple-700 hover:bg-purple-600 disabled:bg-purple-900 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg border-2 border-purple-500 transition-all duration-200 transform hover:scale-105" disabled={!isPlayerTurn && gameState === GameState.COMBAT}>
