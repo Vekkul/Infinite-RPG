@@ -399,77 +399,31 @@ const App: React.FC = () => {
         enemyTurnInProgress.current = true;
         let currentHp = player.hp;
 
-        const determineEnemyAction = (enemy: Enemy): 'attack' | EnemyAbility => {
+        const determineEnemyAction = (enemy: Enemy): 'attack' | EnemyAbility | null => {
             if (!enemy.ability) return 'attack';
-            
             const hpPercent = enemy.hp / enemy.maxHp;
-            const isPlayerDefending = player.isDefending;
-            const isPlayerLow = (currentHp / player.maxHp) < 0.3;
-
-            const canHeal = enemy.ability === EnemyAbility.HEAL;
-            const canShield = enemy.ability === EnemyAbility.SHIELD && !enemy.isShielded;
-            const canDrain = enemy.ability === EnemyAbility.DRAIN_LIFE;
-            const canMulti = enemy.ability === EnemyAbility.MULTI_ATTACK;
-
             switch (enemy.aiPersonality) {
-                case AIPersonality.AGGRESSIVE:
-                    // Aggressive: Push for the kill, especially if player is low.
-                    if (isPlayerLow && (canMulti || canDrain)) return enemy.ability;
-                    
-                    // Rarely heal/shield, only if critical
-                    if (hpPercent < 0.25 && canHeal && Math.random() < 0.8) return EnemyAbility.HEAL;
-                    if (hpPercent < 0.25 && canShield && Math.random() < 0.8) return EnemyAbility.SHIELD;
-
-                    // Use offensive abilities often
-                    if (canMulti && Math.random() < 0.6) return EnemyAbility.MULTI_ATTACK;
-                    if (canDrain && Math.random() < 0.5) return EnemyAbility.DRAIN_LIFE;
-                    
-                    return 'attack';
-
                 case AIPersonality.DEFENSIVE:
-                    // Defensive: prioritize health and shielding.
-                    if (hpPercent < 0.6 && canHeal && Math.random() < 0.9) return EnemyAbility.HEAL;
-                    if (hpPercent < 0.75 && canShield && Math.random() < 0.8) return EnemyAbility.SHIELD;
-                    
-                    // Only attack if safe-ish, or use drain to sustain
-                    if (canDrain && hpPercent < 0.8) return EnemyAbility.DRAIN_LIFE;
-
-                    return 'attack';
-
-                case AIPersonality.STRATEGIC:
-                    // Strategic: Respond to player state.
-                    
-                    // If player is defending, don't waste big attacks. Buff self or heal.
-                    if (isPlayerDefending) {
-                         if (canHeal && hpPercent < 0.9) return EnemyAbility.HEAL;
-                         if (canShield) return EnemyAbility.SHIELD;
+                    if (hpPercent < 0.5 && (enemy.ability === EnemyAbility.HEAL || enemy.ability === EnemyAbility.SHIELD)) {
+                        if (enemy.ability === EnemyAbility.SHIELD && enemy.isShielded) return 'attack';
+                        return enemy.ability;
                     }
-
-                    // If player is vulnerable (low hp), execute
-                    if (isPlayerLow && (canMulti || canDrain)) return enemy.ability;
-
-                    // Smart healing threshold
-                    if (hpPercent < 0.4 && canHeal) return EnemyAbility.HEAL;
-                    
-                    // Shield if somewhat low but not critical
-                    if (hpPercent < 0.6 && canShield) return EnemyAbility.SHIELD;
-
-                    // Use drain efficiently (when not full HP)
-                    if (canDrain && hpPercent < 0.85) return EnemyAbility.DRAIN_LIFE;
-
-                    // Use multi attack for damage output
-                    if (canMulti && Math.random() < 0.5) return EnemyAbility.MULTI_ATTACK;
-
                     return 'attack';
-
+                case AIPersonality.STRATEGIC:
+                    if (hpPercent < 0.3 && enemy.ability === EnemyAbility.HEAL) return EnemyAbility.HEAL;
+                    if (hpPercent < 0.7 && !enemy.isShielded && enemy.ability === EnemyAbility.SHIELD && Math.random() < 0.8) return EnemyAbility.SHIELD;
+                    if ((enemy.ability === EnemyAbility.DRAIN_LIFE || enemy.ability === EnemyAbility.MULTI_ATTACK) && Math.random() < 0.4) return enemy.ability;
+                    return 'attack';
                 case AIPersonality.WILD:
-                    // Wild: High variance.
-                    if (canShield && Math.random() < 0.35) return EnemyAbility.SHIELD;
-                    if (canHeal && hpPercent < 0.8 && Math.random() < 0.4) return EnemyAbility.HEAL;
-                    if ((canMulti || canDrain) && Math.random() < 0.5) return enemy.ability;
+                    if (enemy.ability === EnemyAbility.SHIELD && enemy.isShielded) return 'attack';
+                    if (Math.random() < 0.5) return enemy.ability;
                     return 'attack';
-
-                default:
+                case AIPersonality.AGGRESSIVE: default:
+                    if ((enemy.ability === EnemyAbility.DRAIN_LIFE || enemy.ability === EnemyAbility.MULTI_ATTACK) && Math.random() < 0.3) return enemy.ability;
+                    if ((enemy.ability === EnemyAbility.HEAL || enemy.ability === EnemyAbility.SHIELD) && Math.random() < 0.15) {
+                        if (enemy.ability === EnemyAbility.SHIELD && enemy.isShielded) return 'attack';
+                        return enemy.ability;
+                    }
                     return 'attack';
             }
         };
@@ -494,11 +448,11 @@ const App: React.FC = () => {
                 
                 const actionToTake = determineEnemyAction(enemy);
 
-                if (actionToTake !== 'attack') {
-                    appendToLog(`${enemy.name} uses ${actionToTake}!`);
+                if (actionToTake !== 'attack' && actionToTake !== null) {
+                        appendToLog(`${enemy.name} uses ${actionToTake}!`);
                     switch (actionToTake) {
                         case EnemyAbility.HEAL:
-                            const healAmount = Math.floor(enemy.maxHp * 0.35); // Buffed heal slightly
+                            const healAmount = Math.floor(enemy.maxHp * 0.25);
                             dispatch({ type: 'ENEMY_ACTION_HEAL', payload: { enemyIndex: i, healAmount } });
                             createEventPopup(`${enemy.name} heals!`, 'heal');
                             appendToLog(`${enemy.name} recovers ${healAmount} HP.`);
