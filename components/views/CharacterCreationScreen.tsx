@@ -20,6 +20,14 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
     const [isGenerating, setIsGenerating] = useState(false);
     const [fallbackUsed, setFallbackUsed] = useState(false);
 
+    const getPortraitSrc = (b64: string) => {
+        if (!b64) return '';
+        if (b64.startsWith('PHN2Zy')) {
+             return `data:image/svg+xml;base64,${b64}`;
+        }
+        return `data:image/png;base64,${b64}`;
+    };
+
     const handleGeneratePortrait = async () => {
         if (!description.trim()) {
             alert("Please provide a description for your character.");
@@ -113,7 +121,7 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
                            </div>
                         ) : portrait ? (
                             <>
-                                <img src={`data:image/svg+xml;base64,${portrait}`} alt="Character Portrait" className="w-full h-full object-cover rounded-sm image-rendering-pixelated" />
+                                <img src={getPortraitSrc(portrait)} alt="Character Portrait" className="w-full h-full object-cover rounded-sm image-rendering-pixelated" />
                                 {fallbackUsed && (
                                     <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-yellow-200 text-xs text-center p-1">
                                         Magical interference. Using sketch.

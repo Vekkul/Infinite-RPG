@@ -11,7 +11,9 @@ export const useTypewriter = (text: string, speed: number = 30): string => {
       let index = 0;
       const intervalId = setInterval(() => {
         if (index < text.length) {
-          setDisplayedText((prev) => prev + text.charAt(index));
+          // By using substring, we make the update idempotent and not dependent on the previous state.
+          // This avoids potential race conditions with state updates that can cause character skipping/duplication.
+          setDisplayedText(text.substring(0, index + 1));
           index++;
         } else {
           clearInterval(intervalId);

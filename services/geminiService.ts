@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { Player, GameAction, Item, ItemType, EnemyAbility, CharacterClass, SocialEncounter, RewardType, AIPersonality, MapLocation, WorldData, Element, Enemy } from '../types';
+import { Player, GameAction, Item, ItemType, EnemyAbility, CharacterClass, SocialEncounter, RewardType, AIPersonality, MapLocation, WorldData, Element, Enemy, SocialChoice } from '../types';
 
 // Helper to get a fresh instance of the API client
 const getAi = () => new GoogleGenAI({ apiKey: process.env.API_KEY as string });
@@ -20,29 +20,6 @@ const itemSchema = {
         stackLimit: { type: Type.INTEGER, description: "The maximum stack size for this item. For potions, this should be between 5 and 10."}
     },
     required: ["name", "description", "type", "value", "stackLimit"]
-};
-
-const exploreResultSchema = {
-    type: Type.OBJECT,
-    properties: {
-        outcome: {
-            type: Type.STRING,
-            description: "A vivid, fantasy JRPG-style description of what happens as a result of the player's action. Max 80 words. Be creative and contextually appropriate. This text will become the new main story text."
-        },
-        foundItem: {
-            ...itemSchema,
-            description: "An item the player finds. Optional, include it about 30% of the time for 'search' or 'investigate' type actions. Omit otherwise."
-        },
-        triggerCombat: {
-            type: Type.BOOLEAN,
-            description: "Set to true ONLY if this action directly and logically leads to a combat encounter (e.g., 'Kick the hornet nest'). Should be false for most actions like 'Read a book'."
-        },
-        triggerSocial: {
-            type: Type.BOOLEAN,
-            description: "Set to true if this action leads to a social, non-combat encounter with an NPC."
-        }
-    },
-    required: ["outcome", "triggerCombat", "triggerSocial"]
 };
 
 const sceneSchema = {
@@ -70,6 +47,53 @@ const sceneSchema = {
         }
     },
     required: ["description", "localActions"],
+};
+
+const socialChoiceSchema = {
+    type: Type.OBJECT,
+    properties: {
+        label: { type: Type.STRING, description: "A short label for the choice button (e.g., 'Help the merchant', 'Ignore him'). Max 5 words." },
+        outcome: { type: Type.STRING, description: "The resulting story text if this choice is made. Max 60 words." },
+        reward: {
+            type: Type.OBJECT,
+            properties: {
+                type: { type: Type.STRING, description: `The type of reward. Must be one of: '${RewardType.XP}', '${RewardType.ITEM}'.` },
+                value: { type: Type.INTEGER, description: "For XP, the amount gained. Between 25 and 75." },
+                item: { ...itemSchema, description: "For an ITEM reward, describe the item."}
+            },
+            required: ["type"]
+        }
+    },
+    required: ["label", "outcome"]
+};
+
+const exploreResultSchema = {
+    type: Type.OBJECT,
+    properties: {
+        description: {
+            type: Type.STRING,
+            description: "A vivid description of the result of the player's action, which also sets the stage for what comes next. This text is used for both the event log and the main screen. For an EXPLORATION result, it should describe the outcome and then restate the scene. For a SOCIAL or COMBAT result, it should provide the lead-in text for the encounter. Max 80 words."
+        },
+        nextSceneType: {
+            type: Type.STRING,
+            enum: ['EXPLORATION', 'SOCIAL', 'COMBAT'],
+            description: "The type of scene that follows. MUST be one of the enum values, chosen logically based on the player's action."
+        },
+        localActions: {
+            ...sceneSchema.properties.localActions,
+            description: "ONLY include if nextSceneType is 'EXPLORATION'."
+        },
+        foundItem: {
+            ...itemSchema,
+            description: "An optional item found. ONLY include if nextSceneType is 'EXPLORATION' and it makes narrative sense."
+        },
+        socialChoices: {
+            type: Type.ARRAY,
+            description: "An array of 2 choices. ONLY include if nextSceneType is 'SOCIAL'.",
+            items: socialChoiceSchema
+        }
+    },
+    required: ["description", "nextSceneType"]
 };
 
 const enemySchema = {
@@ -117,37 +141,6 @@ const encounterSchema = {
     items: enemySchema,
 };
 
-const socialChoiceSchema = {
-    type: Type.OBJECT,
-    properties: {
-        label: { type: Type.STRING, description: "A short label for the choice button (e.g., 'Help the merchant', 'Ignore him'). Max 5 words." },
-        outcome: { type: Type.STRING, description: "The resulting story text if this choice is made. Max 60 words." },
-        reward: {
-            type: Type.OBJECT,
-            properties: {
-                type: { type: Type.STRING, description: `The type of reward. Must be one of: '${RewardType.XP}', '${RewardType.ITEM}'.` },
-                value: { type: Type.INTEGER, description: "For XP, the amount gained. Between 25 and 75." },
-                item: { ...itemSchema, description: "For an ITEM reward, describe the item."}
-            },
-            required: ["type"]
-        }
-    },
-    required: ["label", "outcome"]
-};
-
-const socialEncounterSchema = {
-    type: Type.OBJECT,
-    properties: {
-        description: { type: Type.STRING, description: "A description of a non-combat social situation with an NPC. e.g., meeting a lost child, a grumpy guard, a mysterious vendor. Max 80 words." },
-        choices: {
-            type: Type.ARRAY,
-            description: "An array of exactly 2 choices for the player.",
-            items: socialChoiceSchema
-        }
-    },
-    required: ["description", "choices"]
-};
-
 const mapLocationSchema = {
     type: Type.OBJECT,
     properties: {
@@ -190,33 +183,34 @@ const worldDataSchema = {
     required: ["locations", "connections", "startLocationId"]
 };
 
-export const generateExploreResult = async (player: Player, action: GameAction): Promise<{ outcome: string; foundItem?: Omit<Item, 'quantity'>; triggerCombat: boolean; triggerSocial: boolean; isFallback?: boolean; }> => {
+export const generateExploreResult = async (player: Player, action: GameAction): Promise<{ description: string; nextSceneType: 'EXPLORATION' | 'SOCIAL' | 'COMBAT'; localActions?: GameAction[]; foundItem?: Omit<Item, 'quantity'>; socialChoices?: SocialChoice[]; isFallback?: boolean; }> => {
     try {
         const response = await getAi().models.generateContent({
             model: TEXT_MODEL,
-            contents: `The player, a level ${player.level} ${player.class}, decided to perform the action: "${action.label}". Generate a contextually appropriate outcome. The action should not always lead to combat; for example, reading a sign should provide information, not start a fight. The outcome description will replace the current scene text.`,
+            contents: `The player, a level ${player.level} ${player.class}, decided to perform the action: "${action.label}". Generate a logically consistent result. The 'description' must vividly narrate the outcome and set up the next scene, as it will be used for both the log and main screen. For EXPLORATION, describe the action's result and the current scene. For SOCIAL/COMBAT, provide the lead-in text. E.g., for 'Search a chest', 'description' could be 'You open the chest and find a healing potion. The dusty room is otherwise empty.', with nextSceneType 'EXPLORATION'. Trigger COMBAT sparingly.`,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: "application/json",
                 responseSchema: exploreResultSchema,
-                temperature: 0.9,
+                temperature: 0.7,
             },
         });
 
         const data = JSON.parse(response.text);
 
         return {
-            outcome: data.outcome,
+            description: data.description,
+            nextSceneType: data.nextSceneType,
+            localActions: data.localActions,
             foundItem: data.foundItem,
-            triggerCombat: data.triggerCombat || false,
-            triggerSocial: data.triggerSocial || false,
+            socialChoices: data.socialChoices,
         };
 
     } catch (error) {
         return {
-            outcome: "You cautiously proceed, but find nothing of interest. The path ahead remains.",
-            triggerCombat: false,
-            triggerSocial: false,
+            description: "You cautiously proceed but find nothing of interest. The path ahead remains, waiting for your next move.",
+            nextSceneType: 'EXPLORATION',
+            localActions: [{ label: "Scan the surroundings", type: "explore" }],
             isFallback: true,
         };
     }
@@ -231,7 +225,7 @@ export const generateScene = async (player: Player, location: MapLocation): Prom
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: "application/json",
                 responseSchema: sceneSchema,
-                temperature: 0.9,
+                temperature: 0.7,
             },
         });
 
@@ -254,37 +248,6 @@ export const generateScene = async (player: Player, location: MapLocation): Prom
     }
 };
 
-export const generateSceneAfterSocial = async (player: Player, location: MapLocation, choiceOutcome: string): Promise<{ description: string; actions: GameAction[]; foundItem?: Omit<Item, 'quantity'>; isFallback?: boolean; }> => {
-    try {
-        const response = await getAi().models.generateContent({
-            model: TEXT_MODEL,
-            contents: `A level ${player.level} ${player.class} player is at ${location.name} (${location.description}). The following event just occurred: "${choiceOutcome}". Generate a new, vivid scene description that continues from this outcome, and create 1-2 new, thematically appropriate local actions. The new description should NOT repeat the outcome text, but flow naturally from it.`,
-            config: {
-                systemInstruction: SYSTEM_INSTRUCTION,
-                responseMimeType: "application/json",
-                responseSchema: sceneSchema,
-                temperature: 0.9,
-            },
-        });
-
-        const data = JSON.parse(response.text);
-        
-        return {
-            description: data.description,
-            actions: data.localActions || [],
-            foundItem: data.foundItem
-        };
-    } catch (error) {
-        return {
-            description: `${choiceOutcome} The area is now quiet. You contemplate your next move.`,
-            actions: [
-                { label: "Scan the surroundings", type: "explore" },
-            ],
-            isFallback: true,
-        };
-    }
-};
-
 export const generateEncounter = async (player: Player): Promise<{ enemies: Enemy[]; isFallback?: boolean; }> => {
      try {
         const numMonsters = Math.floor(Math.random() * 3) + 1; // 1, 2, or 3
@@ -296,7 +259,7 @@ export const generateEncounter = async (player: Player): Promise<{ enemies: Enem
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: "application/json",
                 responseSchema: encounterSchema,
-                temperature: 1.0,
+                temperature: 0.6,
             },
         });
 
@@ -320,40 +283,6 @@ export const generateEncounter = async (player: Player): Promise<{ enemies: Enem
                 statusEffects: [],
                 aiPersonality: AIPersonality.AGGRESSIVE,
             }],
-            isFallback: true,
-        };
-    }
-};
-
-export const generateSocialEncounter = async (player: Player): Promise<{ encounter: SocialEncounter; isFallback?: boolean; }> => {
-    try {
-        const response = await getAi().models.generateContent({
-            model: TEXT_MODEL,
-            contents: `Generate a social, non-combat encounter for a level ${player.level} ${player.class} in a JRPG. The situation should present a clear choice with two distinct outcomes. One choice might offer a small reward like XP or an item.`,
-            config: {
-                systemInstruction: SYSTEM_INSTRUCTION,
-                responseMimeType: "application/json",
-                responseSchema: socialEncounterSchema,
-                temperature: 1.0,
-            },
-        });
-        return { encounter: JSON.parse(response.text) as SocialEncounter };
-    } catch (error) {
-        return {
-            encounter: {
-                description: "You come across an old merchant whose cart has a broken wheel. He looks at you with weary eyes.",
-                choices: [
-                    {
-                        label: "Help him fix the wheel.",
-                        outcome: "You spend some time helping the merchant. Grateful, he thanks you for your kindness.",
-                        reward: { type: RewardType.XP, value: 30 }
-                    },
-                    {
-                        label: "Ignore him and continue.",
-                        outcome: "You decide you don't have time to help and continue on your journey down the path."
-                    }
-                ]
-            },
             isFallback: true,
         };
     }
@@ -402,9 +331,6 @@ export const generateCharacterPortrait = async (description: string, characterCl
                     },
                 ],
             },
-            config: {
-                responseModalities: [Modality.IMAGE],
-            },
         });
 
         const parts = response.candidates?.[0]?.content?.parts;
@@ -434,9 +360,6 @@ export const generateWorldData = async (): Promise<WorldData | null> => {
                         text: `Generate a top-down, 16-bit pixel art style JRPG world map. The map should feature diverse biomes like lush forests, snowy mountains, villages, a large castle, and a coastline. IMPORTANT: The map image must be clean and contain absolutely no text, no labels, no icons, and no UI elements. It is a background image only.`,
                     },
                 ],
-            },
-            config: {
-                responseModalities: [Modality.IMAGE],
             },
         });
 
@@ -475,7 +398,7 @@ export const generateWorldData = async (): Promise<WorldData | null> => {
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: "application/json",
                 responseSchema: worldDataSchema,
-                temperature: 0.8,
+                temperature: 0.6,
             },
         });
 

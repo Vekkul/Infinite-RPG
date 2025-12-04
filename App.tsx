@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useReducer } from 'react';
-import { GameState, Item, ItemType, SaveData, CharacterClass, EnemyAbility, SocialChoice, AIPersonality, PlayerAbility, Element, StatusEffectType, StatusEffect, WorldData, GameAction, Enemy } from './types';
-import { generateScene, generateEncounter, generateSocialEncounter, generateWorldData, generateExploreResult, generateSceneAfterSocial } from './services/geminiService';
+import { GameState, Item, ItemType, SaveData, CharacterClass, EnemyAbility, SocialChoice, AIPersonality, PlayerAbility, Element, StatusEffectType, StatusEffect, WorldData, GameAction, Enemy, SocialEncounter } from './types';
+import { generateScene, generateEncounter, generateWorldData, generateExploreResult } from './services/geminiService';
 import { Inventory } from './components/Inventory';
 import { reducer } from './state/reducer';
 import { initialState } from './state/initialState';
@@ -184,46 +184,43 @@ const App: React.FC = () => {
         } else if (action.type === 'explore') {
             const result = await generateExploreResult(player, action);
             if (result.isFallback) handleFallback();
-            appendToLog(result.outcome);
     
-            if (result.foundItem) {
-                handleFoundItem(result.foundItem);
-            }
+            appendToLog(result.description);
     
-            if (result.triggerCombat) {
-                const { enemies: newEnemies, isFallback } = await generateEncounter(player);
-                if (isFallback) handleFallback();
-                const enemyNames = newEnemies.map(e => e.name).join(', ');
-                dispatch({ type: 'SET_ENEMIES', payload: newEnemies });
-                dispatch({ type: 'SET_SCENE', payload: { description: `${result.outcome} Suddenly, a ${enemyNames} attacks!`, actions: [] } });
-                appendToLog(newEnemies.length > 0 ? newEnemies[0].description : 'An unseen foe strikes!');
-                dispatch({ type: 'SET_GAME_STATE', payload: GameState.COMBAT });
-                dispatch({ type: 'SET_PLAYER_TURN', payload: true });
-            } else if (result.triggerSocial) {
-                const { encounter: socialEncounter, isFallback } = await generateSocialEncounter(player);
-                if (isFallback) handleFallback();
-                socialEncounter.description = `${result.outcome} ${socialEncounter.description}`;
-                dispatch({ type: 'SET_SOCIAL_ENCOUNTER', payload: socialEncounter });
-            } else {
+            if (result.nextSceneType === 'EXPLORATION') {
                 if (worldData && playerLocationId) {
-                    const currentLocation = worldData.locations.find(l => l.id === playerLocationId);
-                    if (currentLocation) {
-                        const { actions: localActions, foundItem, isFallback } = await generateScene(player, currentLocation);
-                        if(isFallback) handleFallback();
-                        
-                        const newActions = getSceneActions(localActions, worldData, playerLocationId);
-        
-                        dispatch({ type: 'SET_SCENE', payload: { description: result.outcome, actions: newActions } });
-        
-                        if (foundItem) {
-                            handleFoundItem(foundItem);
-                        }
+                    const newActions = getSceneActions(result.localActions || [], worldData, playerLocationId);
+                    dispatch({ type: 'SET_SCENE', payload: { description: result.description, actions: newActions } });
+                    if (result.foundItem) {
+                        handleFoundItem(result.foundItem);
                     }
                 }
                 dispatch({ type: 'SET_GAME_STATE', payload: GameState.EXPLORING });
+
+            } else if (result.nextSceneType === 'SOCIAL') {
+                const encounter: SocialEncounter = {
+                    description: result.description,
+                    choices: result.socialChoices || []
+                };
+                if(encounter.choices.length > 0) {
+                    dispatch({ type: 'SET_SOCIAL_ENCOUNTER', payload: encounter });
+                } else {
+                    // Fallback if AI fails to generate choices
+                    dispatch({ type: 'SET_SCENE', payload: { description: result.description, actions: actions } });
+                    dispatch({ type: 'SET_GAME_STATE', payload: GameState.EXPLORING });
+                }
+    
+            } else if (result.nextSceneType === 'COMBAT') {
+                const { enemies: newEnemies, isFallback } = await generateEncounter(player);
+                if (isFallback) handleFallback();
+                dispatch({ type: 'SET_ENEMIES', payload: newEnemies });
+                dispatch({ type: 'SET_SCENE', payload: { description: result.description, actions: [] } });
+                appendToLog(newEnemies.length > 0 ? newEnemies[0].description : 'An unseen foe strikes!');
+                dispatch({ type: 'SET_GAME_STATE', payload: GameState.COMBAT });
+                dispatch({ type: 'SET_PLAYER_TURN', payload: true });
             }
         }
-    }, [player, appendToLog, handleFoundItem, worldData, playerLocationId, handleFallback]);
+    }, [player, appendToLog, handleFoundItem, worldData, playerLocationId, handleFallback, actions]);
 
     useEffect(() => {
         const prevLocationId = prevPlayerLocationId.current;
@@ -378,13 +375,16 @@ const App: React.FC = () => {
         if (worldData && playerLocationId) {
             const currentLocation = worldData.locations.find(l => l.id === playerLocationId);
             if (currentLocation) {
-                // Generate a new scene that is contextually aware of the choice's outcome
-                const { description, actions: localActions, foundItem, isFallback } = await generateSceneAfterSocial(player, currentLocation, choice.outcome);
+                // Get fresh actions for the current location, but don't use the new description yet.
+                const { actions: localActions, foundItem, isFallback } = await generateScene(player, currentLocation);
                 if (isFallback) handleFallback();
                 
                 const newActions = getSceneActions(localActions, worldData, playerLocationId);
                 
-                dispatch({ type: 'SET_SCENE', payload: { description, actions: newActions } });
+                // Display ONLY the outcome of the social choice. The scene description will be
+                // updated naturally on the next player 'explore' action. This prevents
+                // the AI from generating new, unrelated events immediately after a choice.
+                dispatch({ type: 'SET_SCENE', payload: { description: choice.outcome, actions: newActions } });
     
                 if (foundItem) {
                     handleFoundItem(foundItem);
@@ -676,19 +676,27 @@ const App: React.FC = () => {
                                         </div>
                                     )}
                                     <div className="flex flex-col flex-grow w-full justify-between">
-                                        <div className="flex flex-col justify-around flex-grow gap-1">
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex-grow w-full bg-black/50 rounded-full h-5 border border-gray-600 relative overflow-hidden">
-                                                    <div className="bg-red-500 h-full rounded-full transition-all duration-500 ease-in-out" style={{ width: `${(player.hp / player.maxHp) * 100}%` }}></div>
-                                                    <span className="absolute inset-0 text-center text-white text-xs leading-5" style={{textShadow: '1px 1px 1px #000'}}>HP: {player.hp}/{player.maxHp}</span>
-                                                </div>
-                                                <div className="w-2/5 text-right">
+                                        <div className="flex flex-col justify-between flex-grow">
+                                            {/* Player name, class, and stats at the top */}
+                                            <div>
+                                                <div className="flex justify-between items-baseline">
                                                     <h2 className="text-lg md:text-xl font-press-start text-blue-300 overflow-hidden text-ellipsis whitespace-nowrap" title={player.name}>{player.name}</h2>
+                                                    <p className="text-base text-gray-300">{player.class}</p>
+                                                </div>
+                                                <div className="text-right text-base mt-1">
+                                                    <span>Lvl: <span className="font-bold text-white">{player.level}</span></span>
+                                                    <span className="ml-2">Atk: <span className="font-bold text-white">{player.attack}</span></span>
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex-grow h-5">
+                                            {/* Bars grouped at the bottom */}
+                                            <div className="flex flex-col gap-1.5">
+                                                <div className="w-full bg-black/50 rounded-full h-5 border border-gray-600 relative overflow-hidden">
+                                                    <div className="bg-red-500 h-full rounded-full transition-all duration-500 ease-in-out" style={{ width: `${(player.hp / player.maxHp) * 100}%` }}></div>
+                                                    <span className="absolute inset-0 text-center text-white text-xs leading-5" style={{textShadow: '1px 1px 1px #000'}}>HP: {player.hp}/{player.maxHp}</span>
+                                                </div>
+                                                
+                                                <div className="h-5">
                                                     {player.class === CharacterClass.MAGE && player.mp !== undefined && player.maxMp !== undefined && (
                                                         <div className="w-full bg-black/50 rounded-full h-full border border-gray-600 relative overflow-hidden">
                                                             <div className="bg-blue-500 h-full rounded-full transition-all duration-500 ease-in-out" style={{ width: `${(player.mp / player.maxMp) * 100}%` }}></div>
@@ -702,19 +710,10 @@ const App: React.FC = () => {
                                                         </div>
                                                     )}
                                                 </div>
-                                                <div className="w-2/5 text-right">
-                                                    <p className="text-base text-gray-300">{player.class}</p>
-                                                </div>
-                                            </div>
-                                            
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex-grow w-full bg-black/50 rounded-full h-5 border border-gray-600 relative overflow-hidden">
+                                                
+                                                <div className="w-full bg-black/50 rounded-full h-5 border border-gray-600 relative overflow-hidden">
                                                     <div className="bg-yellow-400 h-full rounded-full transition-all duration-500 ease-in-out" style={{ width: `${(player.xp / player.xpToNextLevel) * 100}%` }}></div>
                                                     <span className="absolute inset-0 text-center text-white text-xs leading-5" style={{textShadow: '1px 1px 1px #000'}}>XP: {player.xp}/{player.xpToNextLevel}</span>
-                                                </div>
-                                                <div className="w-2/5 text-right text-base">
-                                                    <span>Lvl: <span className="font-bold text-white">{player.level}</span></span>
-                                                    <span className="ml-2">Atk: <span className="font-bold text-white">{player.attack}</span></span>
                                                 </div>
                                             </div>
                                         </div>
