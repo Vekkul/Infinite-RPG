@@ -31,15 +31,24 @@ async function decodeAudioData(
   return buffer;
 }
 
+// Singleton for AudioContext to avoid "Too many AudioContexts" warning
+let globalAudioContext: AudioContext | null = null;
+const getAudioContext = () => {
+    if (!globalAudioContext) {
+        globalAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+    }
+    return globalAudioContext;
+};
+
 export const useAudio = (storyText: string, gameState: GameState) => {
     const [isTtsEnabled, setIsTtsEnabled] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
-    const audioContextRef = useRef<AudioContext | null>(null);
     const currentSpeechSourceRef = useRef<AudioBufferSourceNode | null>(null);
     const spokenTextRef = useRef<string>('');
 
     const playSpeech = useCallback(async (text: string) => {
-        if (!text || !audioContextRef.current) return;
+        if (!text) return;
+        const ctx = getAudioContext();
 
         // Stop any previous speech
         if (currentSpeechSourceRef.current) {
@@ -52,26 +61,25 @@ export const useAudio = (storyText: string, gameState: GameState) => {
 
         const { audio, isFallback } = await generateSpeech(text);
         if (isFallback || !audio) {
-            console.error("Failed to generate or received empty audio.");
             setIsSpeaking(false);
             return;
         }
 
         try {
             // Check if context is suspended (browser policy)
-             if (audioContextRef.current.state === 'suspended') {
-                await audioContextRef.current.resume();
+             if (ctx.state === 'suspended') {
+                await ctx.resume();
             }
             
             const audioBuffer = await decodeAudioData(
                 decode(audio),
-                audioContextRef.current,
+                ctx,
                 24000,
                 1,
             );
-            const source = audioContextRef.current.createBufferSource();
+            const source = ctx.createBufferSource();
             source.buffer = audioBuffer;
-            source.connect(audioContextRef.current.destination);
+            source.connect(ctx.destination);
             source.start();
 
             currentSpeechSourceRef.current = source;
@@ -88,13 +96,11 @@ export const useAudio = (storyText: string, gameState: GameState) => {
     }, []);
 
     const toggleTts = useCallback(() => {
-        if (!audioContextRef.current) {
-            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-        }
-
         setIsTtsEnabled(prev => {
             const willBeEnabled = !prev;
             if (willBeEnabled) {
+                // Initialize context on user interaction if needed
+                getAudioContext();
                 spokenTextRef.current = ''; // Reset to trigger current text
             } else {
                 if (currentSpeechSourceRef.current) {

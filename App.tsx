@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useReducer } from 'react';
-import { GameState, Player, Enemy, GameAction, Item, ItemType, SaveData, CharacterClass, EnemyAbility, SocialChoice, AIPersonality, PlayerAbility, Element, StatusEffectType, StatusEffect, WorldData } from './types';
+import { GameState, Item, ItemType, SaveData, CharacterClass, EnemyAbility, SocialChoice, AIPersonality, PlayerAbility, Element, StatusEffectType, StatusEffect, WorldData, GameAction, Enemy } from './types';
 import { generateScene, generateEncounter, generateSocialEncounter, generateWorldData, generateExploreResult, generateSceneAfterSocial } from './services/geminiService';
 import { Inventory } from './components/Inventory';
 import { reducer } from './state/reducer';
@@ -13,7 +13,7 @@ import { CombatView } from './components/views/CombatView';
 import { SocialEncounterView } from './components/views/SocialEncounterView';
 import { WorldMapView } from './components/views/WorldMapView';
 import { LogView } from './components/views/LogView';
-import { HeartIcon, StarIcon, SaveIcon, BoltIcon, FireIcon, MapIcon, BagIcon, SpeakerOnIcon, SpeakerOffIcon, BookIcon, ShieldIcon } from './components/icons';
+import { BoltIcon, FireIcon, MapIcon, BagIcon, SpeakerOnIcon, SpeakerOffIcon, BookIcon, ShieldIcon, SaveIcon } from './components/icons';
 import { JRPG_SAVE_KEY, CRIT_CHANCE, CRIT_MULTIPLIER, FLEE_CHANCE, TRAVEL_ENCOUNTER_CHANCE, STATUS_EFFECT_CONFIG, ENEMY_STATUS_CHANCE, ENEMY_STATUS_MAP } from './constants';
 import { useAudio } from './hooks/useAudio';
 
@@ -613,6 +613,22 @@ const App: React.FC = () => {
 
     const isScreenState = gameState === GameState.START_SCREEN || gameState === GameState.LOADING || gameState === GameState.GAME_OVER || gameState === GameState.CHARACTER_CREATION;
 
+    // Helper to determine image source prefix (SVG uses svg+xml, otherwise standard base64)
+    const getPortraitSrc = (b64: string) => {
+        if (!b64) return '';
+        // If it starts with an SVG tag (decoded), or we know it's SVG from our service logic
+        // But here we only have the base64 string.
+        // Our fallback logic produces base64 of SVG.
+        // Try decoding a bit to check? Or just rely on standard prefix if possible.
+        // Actually, geminiService returns the raw base64 data.
+        // PNG starts with iVBORw0KGgo
+        // SVG base64 (if using btoa('<svg...')) usually starts with PHN2Zy
+        if (b64.startsWith('PHN2Zy')) {
+             return `data:image/svg+xml;base64,${b64}`;
+        }
+        return `data:image/png;base64,${b64}`;
+    };
+
     return (
         <main className="h-screen w-screen bg-gray-900 text-gray-200 p-2" style={{
             backgroundImage: `radial-gradient(circle, rgba(31, 41, 55, 0.9) 0%, rgba(17, 24, 39, 1) 70%)`,
@@ -652,59 +668,58 @@ const App: React.FC = () => {
                     {/* Player Status */}
                     {!isScreenState && (
                         <div className="md:col-span-1 flex flex-col order-1 shrink-0">
-                            <div className="bg-gray-800/70 p-2 md:p-3 rounded-lg border-2 border-blue-500 shadow-lg">
-                                <div className="flex items-center gap-3">
+                            <div className="bg-gray-800/70 p-2 md:p-3 rounded-lg border-2 border-blue-500 shadow-lg h-full">
+                                <div className="flex gap-3 h-full">
                                     {player.portrait && (
-                                        <div className="w-20 h-20 md:w-24 md:h-24 bg-black rounded-md border-2 border-gray-600 flex-shrink-0">
-                                            <img src={`data:image/png;base64,${player.portrait}`} alt="Player Portrait" className="w-full h-full object-cover rounded-sm" />
+                                        <div className="w-24 bg-black rounded-md border-2 border-gray-600 flex-shrink-0 relative overflow-hidden">
+                                            <img src={getPortraitSrc(player.portrait)} alt="Player Portrait" className="w-full h-full object-cover rounded-sm image-rendering-pixelated" />
                                         </div>
                                     )}
-                                    <div className="flex flex-col flex-grow w-full gap-2">
-                                        <div className="flex justify-between items-start">
-                                            <div className="flex-grow min-w-0">
-                                                <h2 className="text-lg md:text-xl font-press-start text-blue-300 overflow-hidden text-ellipsis whitespace-nowrap" title={player.name}>{player.name}</h2>
-                                                <p className="text-base text-gray-300">{player.class}</p>
-                                            </div>
-                                            <div className="text-base text-right flex-shrink-0">
-                                                <div>Lvl: <span className="font-bold text-white">{player.level}</span></div>
-                                                <div>Atk: <span className="font-bold text-white">{player.attack}</span></div>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-2 text-sm font-bold">
-                                                <span className="text-red-400 w-5 text-xs">HP</span>
-                                                <div className="w-full bg-black/50 rounded-full h-4 border border-gray-600 relative overflow-hidden">
+                                    <div className="flex flex-col flex-grow w-full justify-between">
+                                        <div className="flex flex-col justify-around flex-grow gap-1">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex-grow w-full bg-black/50 rounded-full h-5 border border-gray-600 relative overflow-hidden">
                                                     <div className="bg-red-500 h-full rounded-full transition-all duration-500 ease-in-out" style={{ width: `${(player.hp / player.maxHp) * 100}%` }}></div>
-                                                    <span className="absolute inset-0 text-center text-white text-xs leading-4" style={{textShadow: '1px 1px 1px #000'}}>{player.hp}/{player.maxHp}</span>
+                                                    <span className="absolute inset-0 text-center text-white text-xs leading-5" style={{textShadow: '1px 1px 1px #000'}}>HP: {player.hp}/{player.maxHp}</span>
+                                                </div>
+                                                <div className="w-2/5 text-right">
+                                                    <h2 className="text-lg md:text-xl font-press-start text-blue-300 overflow-hidden text-ellipsis whitespace-nowrap" title={player.name}>{player.name}</h2>
                                                 </div>
                                             </div>
-                                            {player.class === CharacterClass.MAGE && player.mp !== undefined && player.maxMp !== undefined && (
-                                                <div className="flex items-center gap-2 text-sm font-bold">
-                                                    <span className="text-blue-400 w-5 text-xs">MP</span>
-                                                    <div className="w-full bg-black/50 rounded-full h-4 border border-gray-600 relative overflow-hidden">
-                                                        <div className="bg-blue-500 h-full rounded-full transition-all duration-500 ease-in-out" style={{ width: `${(player.mp / player.maxMp) * 100}%` }}></div>
-                                                        <span className="absolute inset-0 text-center text-white text-xs leading-4" style={{textShadow: '1px 1px 1px #000'}}>{player.mp}/{player.maxMp}</span>
-                                                    </div>
+
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex-grow h-5">
+                                                    {player.class === CharacterClass.MAGE && player.mp !== undefined && player.maxMp !== undefined && (
+                                                        <div className="w-full bg-black/50 rounded-full h-full border border-gray-600 relative overflow-hidden">
+                                                            <div className="bg-blue-500 h-full rounded-full transition-all duration-500 ease-in-out" style={{ width: `${(player.mp / player.maxMp) * 100}%` }}></div>
+                                                            <span className="absolute inset-0 text-center text-white text-xs leading-5" style={{textShadow: '1px 1px 1px #000'}}>MP: {player.mp}/{player.maxMp}</span>
+                                                        </div>
+                                                    )}
+                                                    {player.class === CharacterClass.ROGUE && player.ep !== undefined && player.maxEp !== undefined && (
+                                                        <div className="w-full bg-black/50 rounded-full h-full border border-gray-600 relative overflow-hidden">
+                                                            <div className="bg-green-500 h-full rounded-full transition-all duration-500 ease-in-out" style={{ width: `${(player.ep / player.maxEp) * 100}%` }}></div>
+                                                            <span className="absolute inset-0 text-center text-white text-xs leading-5" style={{textShadow: '1px 1px 1px #000'}}>EP: {player.ep}/{player.maxEp}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
-                                            {player.class === CharacterClass.ROGUE && player.ep !== undefined && player.maxEp !== undefined && (
-                                                <div className="flex items-center gap-2 text-sm font-bold">
-                                                    <span className="text-green-400 w-5 text-xs">EP</span>
-                                                    <div className="w-full bg-black/50 rounded-full h-4 border border-gray-600 relative overflow-hidden">
-                                                        <div className="bg-green-500 h-full rounded-full transition-all duration-500 ease-in-out" style={{ width: `${(player.ep / player.maxEp) * 100}%` }}></div>
-                                                        <span className="absolute inset-0 text-center text-white text-xs leading-4" style={{textShadow: '1px 1px 1px #000'}}>{player.ep}/{player.maxEp}</span>
-                                                    </div>
+                                                <div className="w-2/5 text-right">
+                                                    <p className="text-base text-gray-300">{player.class}</p>
                                                 </div>
-                                            )}
-                                            <div className="flex items-center gap-2 text-sm font-bold">
-                                                <span className="text-yellow-400 w-5 text-xs">XP</span>
-                                                <div className="w-full bg-black/50 rounded-full h-4 border border-gray-600 relative overflow-hidden">
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex-grow w-full bg-black/50 rounded-full h-5 border border-gray-600 relative overflow-hidden">
                                                     <div className="bg-yellow-400 h-full rounded-full transition-all duration-500 ease-in-out" style={{ width: `${(player.xp / player.xpToNextLevel) * 100}%` }}></div>
-                                                    <span className="absolute inset-0 text-center text-white text-xs leading-4" style={{textShadow: '1px 1px 1px #000'}}>{player.xp}/{player.xpToNextLevel}</span>
+                                                    <span className="absolute inset-0 text-center text-white text-xs leading-5" style={{textShadow: '1px 1px 1px #000'}}>XP: {player.xp}/{player.xpToNextLevel}</span>
+                                                </div>
+                                                <div className="w-2/5 text-right text-base">
+                                                    <span>Lvl: <span className="font-bold text-white">{player.level}</span></span>
+                                                    <span className="ml-2">Atk: <span className="font-bold text-white">{player.attack}</span></span>
                                                 </div>
                                             </div>
                                         </div>
-                                         <div className="flex justify-start items-center gap-2 mt-2 h-6">
+                                        
+                                        <div className="flex justify-start items-center gap-2 h-6 flex-shrink-0 mt-1">
                                             {player.statusEffects.map(effect => (
                                                 <div key={effect.type} className="relative group bg-black/50 p-1 rounded-full">
                                                     {statusEffectIcons[effect.type]}
@@ -719,6 +734,7 @@ const App: React.FC = () => {
                             </div>
                         </div>
                     )}
+
 
                     {/* Main Screen & Log */}
                     <div className={`flex flex-col bg-black/50 rounded-lg border-2 border-gray-600 shadow-inner order-2 md:row-span-2 ${isScreenState ? 'md:col-span-3 h-full' : 'md:col-span-2'} grow min-h-0`}>

@@ -18,6 +18,7 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
     const [description, setDescription] = useState('');
     const [portrait, setPortrait] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
+    const [fallbackUsed, setFallbackUsed] = useState(false);
 
     const handleGeneratePortrait = async () => {
         if (!description.trim()) {
@@ -26,12 +27,15 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
         }
         setIsGenerating(true);
         setPortrait('');
+        setFallbackUsed(false);
+        
         const { portrait: generatedImage, isFallback } = await generateCharacterPortrait(description, selectedClass);
         
-        if (isFallback) {
-            alert("A strange energy interfered with portrait generation. Please try again.");
-        } else if (generatedImage) {
+        if (generatedImage) {
             setPortrait(generatedImage);
+            if (isFallback) {
+                setFallbackUsed(true);
+            }
         } else {
             alert("Failed to generate portrait. Please try a different description or try again later.");
         }
@@ -101,14 +105,21 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
 
                 {/* Right Side: Portrait */}
                 <div className="flex flex-col items-center justify-between">
-                     <div className="w-64 h-64 bg-black/50 border-4 border-gray-600 rounded-md flex items-center justify-center mb-4">
+                     <div className="w-64 h-64 bg-black/50 border-4 border-gray-600 rounded-md flex items-center justify-center mb-4 relative overflow-hidden">
                         {isGenerating ? (
                            <div className="text-center">
                                <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-yellow-400 mx-auto"></div>
                                <p className="mt-2 text-sm">Generating...</p>
                            </div>
                         ) : portrait ? (
-                            <img src={`data:image/png;base64,${portrait}`} alt="Character Portrait" className="w-full h-full object-cover rounded-sm" />
+                            <>
+                                <img src={`data:image/svg+xml;base64,${portrait}`} alt="Character Portrait" className="w-full h-full object-cover rounded-sm image-rendering-pixelated" />
+                                {fallbackUsed && (
+                                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-yellow-200 text-xs text-center p-1">
+                                        Magical interference. Using sketch.
+                                    </div>
+                                )}
+                            </>
                         ) : (
                             <div className="text-center text-gray-400 p-4">
                                 <p>Your character's portrait will appear here.</p>
