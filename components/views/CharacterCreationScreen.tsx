@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { CharacterClass } from '../../types';
 import { generateCharacterPortrait } from '../../services/geminiService';
@@ -77,7 +78,7 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            className="w-full p-2 bg-gray-700 border-2 border-gray-500 rounded-md focus:outline-none focus:border-yellow-400"
+                            className="w-full p-2 bg-gray-700 border-2 border-gray-500 rounded-md focus:outline-none focus:border-yellow-400 text-lg"
                             maxLength={20}
                         />
                     </div>
@@ -104,7 +105,7 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
                             id="description"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            className="w-full p-2 bg-gray-700 border-2 border-gray-500 rounded-md focus:outline-none focus:border-yellow-400"
+                            className="w-full p-2 bg-gray-700 border-2 border-gray-500 rounded-md focus:outline-none focus:border-yellow-400 text-lg"
                             rows={4}
                             placeholder="e.g., A young woman with long silver hair, wearing steel armor and a determined expression."
                         />

@@ -7,7 +7,7 @@ export enum GameState {
   COMBAT = 'COMBAT',
   GAME_OVER = 'GAME_OVER',
   SOCIAL_ENCOUNTER = 'SOCIAL_ENCOUNTER',
-  JOURNAL = 'JOURNAL', // New view
+  JOURNAL = 'JOURNAL', 
 }
 
 export enum CharacterClass {
@@ -25,24 +25,24 @@ export enum Element {
 }
 
 export enum StatusEffectType {
-    BURN = 'BURN',       // DoT
-    CHILL = 'CHILL',     // -20% damage dealt
-    SHOCK = 'SHOCK',     // 10% chance to miss turn
-    GROUNDED = 'GROUNDED', // -20% defense (take more damage)
-    EARTH_ARMOR = 'EARTH_ARMOR', // +20% defense for player
+    BURN = 'BURN',       
+    CHILL = 'CHILL',     
+    SHOCK = 'SHOCK',     
+    GROUNDED = 'GROUNDED', 
+    EARTH_ARMOR = 'EARTH_ARMOR', 
 }
 
 export interface StatusEffect {
   type: StatusEffectType;
   duration: number;
-  sourceAttack?: number; // For BURN damage calculation
+  sourceAttack?: number; 
 }
 
 export enum ItemType {
   POTION = 'POTION',
   WEAPON = 'WEAPON',
   ARMOR = 'ARMOR',
-  KEY_ITEM = 'KEY_ITEM', // New item type for story items
+  KEY_ITEM = 'KEY_ITEM', 
 }
 
 export enum EquipmentSlot {
@@ -75,11 +75,11 @@ export interface Item {
   name: string;
   description: string;
   type: ItemType;
-  value?: number; // HP for potions, Attack for weapons, Defense for armor
+  value?: number; 
   quantity: number;
   stackLimit: number;
-  slot?: EquipmentSlot; // Only for WEAPON/ARMOR
-  traits?: string[]; // New: Narrative tags for the item (e.g., "cursed", "glows", "ancient")
+  slot?: EquipmentSlot; 
+  traits?: string[]; 
 }
 
 // --- Quest & Journal System ---
@@ -92,22 +92,22 @@ export interface Quest {
 
 export interface PlayerJournal {
     quests: Quest[];
-    flags: string[]; // Narrative tags like "met_king", "killed_dragon_boss"
-    notes: string[]; // General player notes or history summary
+    flags: string[]; 
+    notes: string[]; 
 }
 
 export interface Player {
   name: string;
   class: CharacterClass;
-  portrait: string; // base64 encoded image
+  portrait: string; 
   hp: number;
   maxHp: number;
-  mp?: number; // Mana for Mages
+  mp?: number; 
   maxMp?: number;
-  ep?: number; // Energy for Rogues
+  ep?: number; 
   maxEp?: number;
   attack: number;
-  defense: number; // New stat derived from Armor
+  defense: number; 
   level: number;
   xp: number;
   xpToNextLevel: number;
@@ -118,7 +118,7 @@ export interface Player {
     [EquipmentSlot.BODY]?: Item;
   };
   statusEffects: StatusEffect[];
-  journal: PlayerJournal; // New Field
+  journal: PlayerJournal; 
 }
 
 export interface Enemy {
@@ -138,21 +138,21 @@ export interface Enemy {
 export interface GameAction {
   label: string;
   type: 'explore' | 'rest' | 'encounter' | 'social' | 'move';
-  targetLocationId?: string; // for 'move' type
+  targetLocationId?: string; 
 }
 
 // --- Social Encounter ---
 export enum RewardType {
     XP = 'XP',
     ITEM = 'ITEM',
-    QUEST = 'QUEST', // New reward type
+    QUEST = 'QUEST', 
 }
 
 export interface Reward {
     type: RewardType;
-    value?: number; // for XP
-    item?: Omit<Item, 'quantity'>; // for item
-    quest?: Quest; // for quest
+    value?: number; 
+    item?: Omit<Item, 'quantity'>; 
+    quest?: Quest; 
 }
 
 export interface QuestUpdate {
@@ -164,8 +164,8 @@ export interface SocialChoice {
     label: string;
     outcome: string;
     reward?: Reward;
-    flagUpdate?: string; // New: Add a narrative flag if chosen
-    questUpdate?: QuestUpdate; // New: Update quest status
+    flagUpdate?: string; 
+    questUpdate?: QuestUpdate; 
 }
 
 export interface SocialEncounter {
@@ -178,18 +178,18 @@ export interface MapLocation {
     id: string;
     name: string;
     description: string;
-    x: number; // 0-100 percentage
-    y: number; // 0-100 percentage
+    x: number; 
+    y: number; 
     isExplored: boolean;
 }
 
 export interface Connection {
-    from: string; // location id
-    to: string; // location id
+    from: string; 
+    to: string; 
 }
 
 export interface WorldData {
-    image: string; // base64 encoded image
+    image: string; 
     locations: MapLocation[];
     connections: Connection[];
     startLocationId: string;
@@ -204,6 +204,11 @@ export interface SaveData {
     playerLocationId: string;
 }
 
+// --- App Settings ---
+export interface AppSettings {
+    crtEnabled: boolean;
+    textSpeed: number;
+}
 
 // --- Reducer State & Actions ---
 
@@ -246,7 +251,7 @@ export type Action =
   | { type: 'SET_SOCIAL_ENCOUNTER'; payload: SocialEncounter }
   | { type: 'RESOLVE_SOCIAL_CHOICE'; payload: { choice: SocialChoice } }
   | { type: 'SET_WORLD_DATA'; payload: WorldData }
-  | { type: 'MOVE_PLAYER'; payload: string } // payload is targetLocationId
+  | { type: 'MOVE_PLAYER'; payload: string } 
   | { type: 'PROCESS_TURN_EFFECTS'; payload: { target: 'player' | 'enemy'; index?: number } }
   | { type: 'APPLY_STATUS_EFFECT'; payload: { target: 'player' | 'enemy'; index?: number; effect: StatusEffect } }
   | { type: 'ADD_QUEST'; payload: Quest }
