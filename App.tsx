@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef, useReducer } from 'react';
 import { GameState, Item, ItemType, SaveData, CharacterClass, EnemyAbility, SocialChoice, AIPersonality, PlayerAbility, Element, StatusEffectType, StatusEffect, WorldData, GameAction, Enemy, SocialEncounter, EquipmentSlot } from './types';
 import { generateScene, generateEncounter, generateWorldData, generateExploreResult } from './services/geminiService';
+import { saveGameToStorage, loadGameFromStorage, checkSaveExists } from './services/storageService';
 import { Inventory } from './components/Inventory';
 import { JournalView } from './components/JournalView';
 import { reducer } from './state/reducer';
@@ -16,7 +17,7 @@ import { SocialEncounterView } from './components/views/SocialEncounterView';
 import { WorldMapView } from './components/views/WorldMapView';
 import { LogView } from './components/views/LogView';
 import { BoltIcon, FireIcon, MapIcon, BagIcon, SpeakerOnIcon, SpeakerOffIcon, BookIcon, ShieldIcon, SaveIcon, StarIcon } from './components/icons';
-import { JRPG_SAVE_KEY, CRIT_CHANCE, CRIT_MULTIPLIER, FLEE_CHANCE, TRAVEL_ENCOUNTER_CHANCE, STATUS_EFFECT_CONFIG, ENEMY_STATUS_CHANCE, ENEMY_STATUS_MAP } from './constants';
+import { CRIT_CHANCE, CRIT_MULTIPLIER, FLEE_CHANCE, TRAVEL_ENCOUNTER_CHANCE, STATUS_EFFECT_CONFIG, ENEMY_STATUS_CHANCE, ENEMY_STATUS_MAP } from './constants';
 import { useAudio } from './hooks/useAudio';
 
 interface EventPopup {
@@ -76,12 +77,19 @@ const App: React.FC = () => {
     const prevLevelRef = useRef(player.level);
     const isInitialMount = useRef(true);
     const prevPlayerLocationId = useRef<string | null>(null);
+    
+    // Async Operation Tracking to prevent race conditions
+    const operationIdRef = useRef(0);
 
     const { isTtsEnabled, isSpeaking, toggleTts } = useAudio(storyText, gameState);
 
     useEffect(() => {
-        const savedData = localStorage.getItem(JRPG_SAVE_KEY);
-        setSaveFileExists(!!savedData);
+        // Check for save file asynchronously on mount
+        const check = async () => {
+            const exists = await checkSaveExists();
+            setSaveFileExists(exists);
+        };
+        check();
     }, []);
 
     useEffect(() => {
@@ -120,9 +128,12 @@ const App: React.FC = () => {
     }, []);
 
     const handleCharacterCreation = useCallback(async (details: { name: string; class: CharacterClass; portrait: string }) => {
+        const opId = ++operationIdRef.current;
         dispatch({ type: 'CREATE_CHARACTER', payload: details });
         
         const newWorldData = await generateWorldData();
+        if (opId !== operationIdRef.current) return;
+
         if (!newWorldData) {
             dispatch({ type: 'SET_GAME_STATE', payload: GameState.START_SCREEN });
             appendToLog("Error: Could not generate a new world. Please try again.");
@@ -135,6 +146,8 @@ const App: React.FC = () => {
             const tempPlayer = { ...initialState.player, name: details.name, class: details.class, portrait: details.portrait };
             const { description, actions: localActions, foundItem, isFallback } = await generateScene(tempPlayer, startLocation);
             
+            if (opId !== operationIdRef.current) return;
+
             if (isFallback) handleFallback();
 
             const allActions = getSceneActions(localActions, newWorldData, newWorldData.startLocationId);
@@ -148,7 +161,7 @@ const App: React.FC = () => {
 
     }, [handleFoundItem, appendToLog, handleFallback]);
 
-    const saveGame = useCallback(() => {
+    const saveGame = useCallback(async () => {
         if (!worldData || !playerLocationId) {
             createEventPopup("Cannot save: Invalid state", 'info');
             return;
@@ -156,31 +169,46 @@ const App: React.FC = () => {
         
         const saveData: SaveData = { player, storyText, actions, log, worldData, playerLocationId };
         
+        setIsSaving(true);
         try {
-            localStorage.setItem(JRPG_SAVE_KEY, JSON.stringify(saveData));
+            await saveGameToStorage(saveData);
             setSaveFileExists(true);
-            setIsSaving(true);
             appendToLog('Game Saved!');
             createEventPopup('Game Saved!', 'info');
-            setTimeout(() => setIsSaving(false), 2000);
         } catch (e) {
             console.error("Save failed", e);
             createEventPopup('Save Failed!', 'info');
-            appendToLog('Error: Could not save game (Storage full?)');
+            appendToLog('Error: Could not save game (Storage quota exceeded?)');
+        } finally {
+            setTimeout(() => setIsSaving(false), 2000);
         }
     }, [player, storyText, actions, log, worldData, playerLocationId, appendToLog, createEventPopup]);
 
-    const loadGame = useCallback(() => {
-        const savedDataString = localStorage.getItem(JRPG_SAVE_KEY);
-        if (savedDataString) {
-            const savedData: SaveData = JSON.parse(savedDataString);
-            dispatch({ type: 'LOAD_GAME', payload: savedData });
-        } else {
-            appendToLog('No save file found.');
+    const loadGame = useCallback(async () => {
+        dispatch({ type: 'SET_GAME_STATE', payload: GameState.LOADING });
+        try {
+            const savedData = await loadGameFromStorage();
+            if (savedData) {
+                // Validate essential structure
+                if (!savedData.player || !savedData.worldData || !savedData.playerLocationId) {
+                    throw new Error("Invalid save file structure");
+                }
+                dispatch({ type: 'LOAD_GAME', payload: savedData });
+            } else {
+                appendToLog('No save file found.');
+                dispatch({ type: 'SET_GAME_STATE', payload: GameState.START_SCREEN });
+            }
+        } catch (e) {
+            console.error("Load failed", e);
+            appendToLog('Error: Corrupt save file.');
+            createEventPopup('Load Failed!', 'info');
+            dispatch({ type: 'SET_GAME_STATE', payload: GameState.START_SCREEN });
         }
-    }, [appendToLog]);
+    }, [appendToLog, createEventPopup]);
 
     const handleAction = useCallback(async (action: GameAction) => {
+        const opId = ++operationIdRef.current;
+
         if (action.type === 'move' && action.targetLocationId) {
             dispatch({ type: 'MOVE_PLAYER', payload: action.targetLocationId });
             return;
@@ -191,6 +219,8 @@ const App: React.FC = () => {
     
         if (action.type === 'encounter') {
             const { enemies: newEnemies, isFallback } = await generateEncounter(player);
+            if (opId !== operationIdRef.current) return;
+
             if (isFallback) handleFallback();
             const enemyNames = newEnemies.map(e => e.name).join(', ');
             dispatch({ type: 'SET_ENEMIES', payload: newEnemies });
@@ -200,6 +230,8 @@ const App: React.FC = () => {
             dispatch({ type: 'SET_PLAYER_TURN', payload: true });
         } else if (action.type === 'explore') {
             const result = await generateExploreResult(player, action);
+            if (opId !== operationIdRef.current) return;
+
             if (result.isFallback) handleFallback();
     
             appendToLog(result.description);
@@ -236,6 +268,8 @@ const App: React.FC = () => {
     
             } else if (result.nextSceneType === 'COMBAT') {
                 const { enemies: newEnemies, isFallback } = await generateEncounter(player);
+                if (opId !== operationIdRef.current) return;
+
                 if (isFallback) handleFallback();
                 dispatch({ type: 'SET_ENEMIES', payload: newEnemies });
                 dispatch({ type: 'SET_SCENE', payload: { description: result.description, actions: [] } });
@@ -258,6 +292,7 @@ const App: React.FC = () => {
         if (prevLocationId && prevLocationId !== playerLocationId) {
             if (playerLocationId && worldData) {
                 const move = async () => {
+                    const opId = ++operationIdRef.current;
                     dispatch({ type: 'SET_GAME_STATE', payload: GameState.LOADING });
 
                     const newLocation = worldData.locations.find(l => l.id === playerLocationId);
@@ -267,6 +302,8 @@ const App: React.FC = () => {
                     
                     if (Math.random() < TRAVEL_ENCOUNTER_CHANCE) {
                         const { enemies: newEnemies, isFallback } = await generateEncounter(player);
+                        if (opId !== operationIdRef.current) return;
+
                         if (isFallback) handleFallback();
                         const enemyNames = newEnemies.map(e => e.name).join(', ');
                         dispatch({ type: 'SET_ENEMIES', payload: newEnemies });
@@ -276,6 +313,8 @@ const App: React.FC = () => {
                         dispatch({ type: 'SET_PLAYER_TURN', payload: true });
                     } else {
                         const { description, actions: localActions, foundItem, isFallback } = await generateScene(player, newLocation);
+                        if (opId !== operationIdRef.current) return;
+
                         if (isFallback) handleFallback();
                          
                         const newActions = getSceneActions(localActions, worldData, playerLocationId);
@@ -333,6 +372,7 @@ const App: React.FC = () => {
 
 
     const loadSceneForCurrentLocation = useCallback(async () => {
+        const opId = ++operationIdRef.current;
         if (!worldData || !playerLocationId) return;
 
         dispatch({ type: 'SET_GAME_STATE', payload: GameState.LOADING });
@@ -341,6 +381,8 @@ const App: React.FC = () => {
         if (!currentLocation) return;
         
         const { description, actions: localActions, foundItem, isFallback } = await generateScene(player, currentLocation);
+        if (opId !== operationIdRef.current) return;
+
         if (isFallback) handleFallback();
 
         const newActions = getSceneActions(localActions, worldData, playerLocationId);
@@ -399,6 +441,7 @@ const App: React.FC = () => {
     }, [player, enemies, appendToLog, isPlayerTurn, loadSceneForCurrentLocation]);
 
     const handleSocialChoice = useCallback(async (choice: SocialChoice) => {
+        const opId = ++operationIdRef.current;
         dispatch({ type: 'SET_GAME_STATE', payload: GameState.LOADING });
     
         dispatch({ type: 'RESOLVE_SOCIAL_CHOICE', payload: { choice } });
@@ -424,6 +467,8 @@ const App: React.FC = () => {
             const currentLocation = worldData.locations.find(l => l.id === playerLocationId);
             if (currentLocation) {
                 const { actions: localActions, foundItem, isFallback } = await generateScene(player, currentLocation);
+                if (opId !== operationIdRef.current) return;
+
                 if (isFallback) handleFallback();
                 
                 const newActions = getSceneActions(localActions, worldData, playerLocationId);
@@ -754,9 +799,10 @@ const App: React.FC = () => {
                     </button>
                     <button 
                         onClick={saveGame} 
-                        className={`flex items-center justify-center p-3 rounded-lg border-2 active:scale-95 transition-all ${isSaving ? 'bg-green-600 border-green-400' : 'bg-indigo-700 hover:bg-indigo-600 border-indigo-500 text-white'}`}
+                        disabled={isSaving}
+                        className={`flex items-center justify-center p-3 rounded-lg border-2 active:scale-95 transition-all ${isSaving ? 'bg-green-600 border-green-400 opacity-80 cursor-not-allowed' : 'bg-indigo-700 hover:bg-indigo-600 border-indigo-500 text-white'}`}
                     >
-                        {isSaving ? <span className="text-xs font-bold">SAVED</span> : <SaveIcon className="w-6 h-6" />}
+                        {isSaving ? <span className="text-xs font-bold animate-pulse">...</span> : <SaveIcon className="w-6 h-6" />}
                     </button>
                 </>
             )}

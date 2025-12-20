@@ -210,6 +210,22 @@ const worldDataSchema = {
     required: ["locations", "connections", "startLocationId"]
 };
 
+// Helper for Safe JSON Parsing
+const safeJsonParse = <T>(text: string, fallbackMessage: string): T => {
+    try {
+        const cleanedText = text.trim();
+        // Simple check to ensure we are trying to parse something that looks like JSON
+        if ((!cleanedText.startsWith('{') && !cleanedText.startsWith('['))) {
+             throw new Error("Response is not JSON");
+        }
+        return JSON.parse(cleanedText) as T;
+    } catch (error) {
+        console.warn(`JSON Parse Error: ${fallbackMessage}`, error);
+        throw error;
+    }
+};
+
+
 // --- Helper for Prompt Construction ---
 const getContextString = (player: Player) => {
     let context = `Player Context: Level ${player.level} ${player.class}.`;
@@ -244,7 +260,7 @@ export const generateExploreResult = async (player: Player, action: GameAction):
             },
         });
 
-        const data = JSON.parse(response.text);
+        const data = safeJsonParse<any>(response.text, "generateExploreResult");
 
         return {
             description: data.description,
@@ -279,7 +295,7 @@ export const generateScene = async (player: Player, location: MapLocation): Prom
             },
         });
 
-        const data = JSON.parse(response.text);
+        const data = safeJsonParse<any>(response.text, "generateScene");
         
         return {
             description: data.description,
@@ -314,7 +330,8 @@ export const generateEncounter = async (player: Player): Promise<{ enemies: Enem
             },
         });
 
-        const data = JSON.parse(response.text) as Omit<Enemy, 'maxHp' | 'isShielded' | 'statusEffects'>[];
+        const data = safeJsonParse<Omit<Enemy, 'maxHp' | 'isShielded' | 'statusEffects'>[]>(response.text, "generateEncounter");
+        
         if (!Array.isArray(data) || data.length === 0) {
             throw new Error("Invalid response format from API");
         }
@@ -453,7 +470,7 @@ export const generateWorldData = async (): Promise<WorldData | null> => {
             },
         });
 
-        const worldJson = JSON.parse(worldDataResponse.text.trim());
+        const worldJson = safeJsonParse<any>(worldDataResponse.text, "generateWorldData");
         
         let startId = worldJson.startLocationId;
         const locations = worldJson.locations || [];

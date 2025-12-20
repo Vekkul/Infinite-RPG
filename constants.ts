@@ -1,3 +1,4 @@
+
 import { Player, CharacterClass, PlayerAbility, Element, StatusEffectType } from './types';
 
 export const JRPG_SAVE_KEY = 'jrpgSaveDataV2';
@@ -107,7 +108,7 @@ export const PLAYER_ABILITIES: Record<PlayerAbility, AbilityDetails> = {
 export const CRIT_CHANCE = 0.1;
 export const CRIT_MULTIPLIER = 1.5;
 export const FLEE_CHANCE = 0.4;
-export const TRAVEL_ENCOUNTER_CHANCE = 0.5;
+export const TRAVEL_ENCOUNTER_CHANCE = 0.35; // Reduced from 0.5 for better pacing
 
 export const ELEMENTAL_RESISTANCES: Record<Element, Element> = {
     [Element.EARTH]: Element.LIGHTNING,

@@ -1,3 +1,4 @@
+
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { generateSpeech } from '../services/geminiService';
 import { GameState } from '../types';
@@ -60,6 +61,12 @@ export const useAudio = (storyText: string, gameState: GameState) => {
         spokenTextRef.current = text;
 
         const { audio, isFallback } = await generateSpeech(text);
+        
+        // Stale check: If the spoken text ref has changed while we were awaiting, discard this result.
+        if (spokenTextRef.current !== text) {
+             return;
+        }
+
         if (isFallback || !audio) {
             setIsSpeaking(false);
             return;
