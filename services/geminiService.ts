@@ -1,5 +1,6 @@
+
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { Player, GameAction, Item, ItemType, EnemyAbility, CharacterClass, SocialEncounter, RewardType, AIPersonality, MapLocation, WorldData, Element, Enemy, SocialChoice } from '../types';
+import { Player, GameAction, Item, ItemType, EnemyAbility, CharacterClass, SocialEncounter, RewardType, AIPersonality, MapLocation, WorldData, Element, Enemy, SocialChoice, EquipmentSlot, Quest } from '../types';
 
 // Helper to get a fresh instance of the API client
 const getAi = () => new GoogleGenAI({ apiKey: process.env.API_KEY as string });
@@ -10,14 +11,27 @@ const TTS_MODEL = 'gemini-2.5-flash-preview-tts';
 
 const SYSTEM_INSTRUCTION = "You are a creative and engaging dungeon master for a classic fantasy JRPG. Your descriptions are vivid, your monsters are menacing, and your scenarios are intriguing. Keep the tone epic and adventurous, with a slightly retro feel. Responses must adhere to the provided JSON schema.";
 
+const questSchema = {
+    type: Type.OBJECT,
+    properties: {
+        id: { type: Type.STRING, description: "A unique, short ID for the quest (e.g., 'find_lost_cat')." },
+        title: { type: Type.STRING, description: "The title of the quest." },
+        description: { type: Type.STRING, description: "A brief description of what the player needs to do." },
+        status: { type: Type.STRING, enum: ['ACTIVE'], description: "Initial status." }
+    },
+    required: ["id", "title", "description", "status"]
+};
+
 const itemSchema = {
     type: Type.OBJECT,
     properties: {
-        name: { type: Type.STRING, description: "The name of the item, e.g., 'Minor Healing Potion', 'Bubbling Concoction'." },
+        name: { type: Type.STRING, description: "The name of the item, e.g., 'Minor Healing Potion', 'Rusty Iron Sword', 'Leather Jerkin', 'Ancient Key'." },
         description: { type: Type.STRING, description: "A brief, flavorful description of the item." },
-        type: { type: Type.STRING, description: `The item type. Must be '${ItemType.POTION}'.` },
-        value: { type: Type.INTEGER, description: "For potions, the amount of HP it restores. Between 15 and 30." },
-        stackLimit: { type: Type.INTEGER, description: "The maximum stack size for this item. For potions, this should be between 5 and 10."}
+        type: { type: Type.STRING, enum: [ItemType.POTION, ItemType.WEAPON, ItemType.ARMOR, ItemType.KEY_ITEM], description: "The item type. Use KEY_ITEM for story objects." },
+        value: { type: Type.INTEGER, description: "For POTION: HP restored. WEAPON/ARMOR: Stat bonus. KEY_ITEM: 0." },
+        stackLimit: { type: Type.INTEGER, description: "Max stack size. Potions: 5-10. Equipment: 1. Key Items: 1."},
+        slot: { type: Type.STRING, enum: [EquipmentSlot.MAIN_HAND, EquipmentSlot.BODY], description: "Only for WEAPON/ARMOR. Null for others."},
+        traits: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Optional narrative tags, e.g., ['cursed', 'glows', 'rusty']."}
     },
     required: ["name", "description", "type", "value", "stackLimit"]
 };
@@ -54,12 +68,14 @@ const socialChoiceSchema = {
     properties: {
         label: { type: Type.STRING, description: "A short label for the choice button (e.g., 'Help the merchant', 'Ignore him'). Max 5 words." },
         outcome: { type: Type.STRING, description: "The resulting story text if this choice is made. Max 60 words." },
+        flagUpdate: { type: Type.STRING, description: "Optional: A narrative flag to add to the player's journal if this choice is taken (e.g., 'helped_merchant', 'stole_apple')." },
         reward: {
             type: Type.OBJECT,
             properties: {
-                type: { type: Type.STRING, description: `The type of reward. Must be one of: '${RewardType.XP}', '${RewardType.ITEM}'.` },
+                type: { type: Type.STRING, description: `The type of reward. Must be one of: '${RewardType.XP}', '${RewardType.ITEM}', '${RewardType.QUEST}'.` },
                 value: { type: Type.INTEGER, description: "For XP, the amount gained. Between 25 and 75." },
-                item: { ...itemSchema, description: "For an ITEM reward, describe the item."}
+                item: { ...itemSchema, description: "For an ITEM reward, describe the item." },
+                quest: { ...questSchema, description: "For a QUEST reward, describe the new quest." }
             },
             required: ["type"]
         }
@@ -183,11 +199,24 @@ const worldDataSchema = {
     required: ["locations", "connections", "startLocationId"]
 };
 
+// --- Helper for Prompt Construction ---
+const getContextString = (player: Player) => {
+    let context = `Player Context: Level ${player.level} ${player.class}.`;
+    if (player.journal.quests.length > 0) {
+        context += ` Active Quests: ${player.journal.quests.map(q => q.title).join(', ')}.`;
+    }
+    if (player.journal.flags.length > 0) {
+        context += ` Narrative Flags (Events that happened): ${player.journal.flags.join(', ')}.`;
+    }
+    return context;
+};
+
 export const generateExploreResult = async (player: Player, action: GameAction): Promise<{ description: string; nextSceneType: 'EXPLORATION' | 'SOCIAL' | 'COMBAT'; localActions?: GameAction[]; foundItem?: Omit<Item, 'quantity'>; socialChoices?: SocialChoice[]; isFallback?: boolean; }> => {
     try {
+        const context = getContextString(player);
         const response = await getAi().models.generateContent({
             model: TEXT_MODEL,
-            contents: `The player, a level ${player.level} ${player.class}, decided to perform the action: "${action.label}". Generate a logically consistent result. The 'description' must vividly narrate the outcome and set up the next scene, as it will be used for both the log and main screen. For EXPLORATION, describe the action's result and the current scene. For SOCIAL/COMBAT, provide the lead-in text. E.g., for 'Search a chest', 'description' could be 'You open the chest and find a healing potion. The dusty room is otherwise empty.', with nextSceneType 'EXPLORATION'. Trigger COMBAT sparingly.`,
+            contents: `Context: ${context}. The player decided to: "${action.label}". Generate a logically consistent result that respects the narrative flags. The 'description' must vividly narrate the outcome and set up the next scene. For EXPLORATION, describe the action's result and the current scene. For SOCIAL/COMBAT, provide the lead-in text. E.g., for 'Search a chest', 'description' could be 'You open the chest and find a healing potion. The dusty room is otherwise empty.', with nextSceneType 'EXPLORATION'. Trigger COMBAT sparingly.`,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: "application/json",
@@ -218,9 +247,10 @@ export const generateExploreResult = async (player: Player, action: GameAction):
 
 export const generateScene = async (player: Player, location: MapLocation): Promise<{ description: string; actions: GameAction[]; foundItem?: Omit<Item, 'quantity'>; isFallback?: boolean; }> => {
     try {
+        const context = getContextString(player);
         const response = await getAi().models.generateContent({
             model: TEXT_MODEL,
-            contents: `Generate a new scene for a JRPG player at level ${player.level}. The player has just arrived at ${location.name}: "${location.description}". Generate a vivid description and 1-2 thematically appropriate local actions.`,
+            contents: `Context: ${context}. Generate a new scene for a JRPG player. The player has just arrived at ${location.name}: "${location.description}". Generate a vivid description that incorporates active quests or narrative flags if they seem relevant to this location. Generate 1-2 thematically appropriate local actions.`,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: "application/json",
@@ -250,11 +280,12 @@ export const generateScene = async (player: Player, location: MapLocation): Prom
 
 export const generateEncounter = async (player: Player): Promise<{ enemies: Enemy[]; isFallback?: boolean; }> => {
      try {
+        const context = getContextString(player);
         const numMonsters = Math.floor(Math.random() * 3) + 1; // 1, 2, or 3
 
         const response = await getAi().models.generateContent({
             model: TEXT_MODEL,
-            contents: `Generate a fantasy JRPG monster encounter for a player who is level ${player.level}. Generate exactly ${numMonsters} monster(s). Some might have special abilities like healing or shielding. Monsters can also have an elemental affinity (Fire, Ice, Lightning, Earth), which will affect their attacks and resistances. The encounter should be a suitable challenge.`,
+            contents: `Context: ${context}. Generate a fantasy JRPG monster encounter for a player who is level ${player.level}. Generate exactly ${numMonsters} monster(s). Some might have special abilities like healing or shielding. Monsters can also have an elemental affinity (Fire, Ice, Lightning, Earth). The encounter should be a suitable challenge.`,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: "application/json",

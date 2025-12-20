@@ -1,3 +1,4 @@
+
 export enum GameState {
   LOADING = 'LOADING',
   START_SCREEN = 'START_SCREEN',
@@ -6,6 +7,7 @@ export enum GameState {
   COMBAT = 'COMBAT',
   GAME_OVER = 'GAME_OVER',
   SOCIAL_ENCOUNTER = 'SOCIAL_ENCOUNTER',
+  JOURNAL = 'JOURNAL', // New view
 }
 
 export enum CharacterClass {
@@ -38,6 +40,14 @@ export interface StatusEffect {
 
 export enum ItemType {
   POTION = 'POTION',
+  WEAPON = 'WEAPON',
+  ARMOR = 'ARMOR',
+  KEY_ITEM = 'KEY_ITEM', // New item type for story items
+}
+
+export enum EquipmentSlot {
+  MAIN_HAND = 'MAIN_HAND',
+  BODY = 'BODY',
 }
 
 export enum EnemyAbility {
@@ -65,9 +75,25 @@ export interface Item {
   name: string;
   description: string;
   type: ItemType;
-  value?: number; // e.g., amount of HP to restore
+  value?: number; // HP for potions, Attack for weapons, Defense for armor
   quantity: number;
   stackLimit: number;
+  slot?: EquipmentSlot; // Only for WEAPON/ARMOR
+  traits?: string[]; // New: Narrative tags for the item (e.g., "cursed", "glows", "ancient")
+}
+
+// --- Quest & Journal System ---
+export interface Quest {
+    id: string;
+    title: string;
+    description: string;
+    status: 'ACTIVE' | 'COMPLETED' | 'FAILED';
+}
+
+export interface PlayerJournal {
+    quests: Quest[];
+    flags: string[]; // Narrative tags like "met_king", "killed_dragon_boss"
+    notes: string[]; // General player notes or history summary
 }
 
 export interface Player {
@@ -81,12 +107,18 @@ export interface Player {
   ep?: number; // Energy for Rogues
   maxEp?: number;
   attack: number;
+  defense: number; // New stat derived from Armor
   level: number;
   xp: number;
   xpToNextLevel: number;
   isDefending: boolean;
   inventory: Item[];
+  equipment: {
+    [EquipmentSlot.MAIN_HAND]?: Item;
+    [EquipmentSlot.BODY]?: Item;
+  };
   statusEffects: StatusEffect[];
+  journal: PlayerJournal; // New Field
 }
 
 export interface Enemy {
@@ -113,18 +145,21 @@ export interface GameAction {
 export enum RewardType {
     XP = 'XP',
     ITEM = 'ITEM',
+    QUEST = 'QUEST', // New reward type
 }
 
 export interface Reward {
     type: RewardType;
     value?: number; // for XP
     item?: Omit<Item, 'quantity'>; // for item
+    quest?: Quest; // for quest
 }
 
 export interface SocialChoice {
     label: string;
     outcome: string;
     reward?: Reward;
+    flagUpdate?: string; // New: Add a narrative flag if chosen
 }
 
 export interface SocialEncounter {
@@ -197,6 +232,8 @@ export type Action =
   | { type: 'ADD_ITEM_TO_INVENTORY'; payload: Omit<Item, 'quantity'> }
   | { type: 'PROCESS_COMBAT_VICTORY'; payload: { xpGained: number; loot: Omit<Item, 'quantity'>[]; regen: {hp: number; mp: number; ep: number; } } }
   | { type: 'USE_ITEM'; payload: { inventoryIndex: number } }
+  | { type: 'EQUIP_ITEM'; payload: { inventoryIndex: number } }
+  | { type: 'UNEQUIP_ITEM'; payload: { slot: EquipmentSlot } }
   | { type: 'ENEMY_ACTION_HEAL'; payload: { enemyIndex: number; healAmount: number } }
   | { type: 'ENEMY_ACTION_DRAIN_LIFE', payload: { enemyIndex: number; damage: number } }
   | { type: 'ENEMY_ACTION_SHIELD'; payload: { enemyIndex: number } }
@@ -205,4 +242,7 @@ export type Action =
   | { type: 'SET_WORLD_DATA'; payload: WorldData }
   | { type: 'MOVE_PLAYER'; payload: string } // payload is targetLocationId
   | { type: 'PROCESS_TURN_EFFECTS'; payload: { target: 'player' | 'enemy'; index?: number } }
-  | { type: 'APPLY_STATUS_EFFECT'; payload: { target: 'player' | 'enemy'; index?: number; effect: StatusEffect } };
+  | { type: 'APPLY_STATUS_EFFECT'; payload: { target: 'player' | 'enemy'; index?: number; effect: StatusEffect } }
+  | { type: 'ADD_QUEST'; payload: Quest }
+  | { type: 'UPDATE_QUEST_STATUS'; payload: { id: string; status: Quest['status'] } }
+  | { type: 'ADD_JOURNAL_FLAG'; payload: string };

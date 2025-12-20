@@ -9,12 +9,19 @@ export const INITIAL_PLAYER_STATS: Player = {
   hp: 50,
   maxHp: 50,
   attack: 10,
+  defense: 0,
   level: 1,
   xp: 0,
   xpToNextLevel: 100,
   isDefending: false,
   inventory: [],
+  equipment: {},
   statusEffects: [],
+  journal: {
+      quests: [],
+      flags: [],
+      notes: []
+  }
 };
 
 export const CLASS_STATS: Record<CharacterClass, Partial<Player>> = {
@@ -22,6 +29,7 @@ export const CLASS_STATS: Record<CharacterClass, Partial<Player>> = {
         maxHp: 70,
         hp: 70,
         attack: 12,
+        defense: 2,
     },
     [CharacterClass.MAGE]: {
         maxHp: 45,
@@ -29,6 +37,7 @@ export const CLASS_STATS: Record<CharacterClass, Partial<Player>> = {
         attack: 8,
         maxMp: 30,
         mp: 30,
+        defense: 0,
     },
     [CharacterClass.ROGUE]: {
         maxHp: 55,
@@ -36,6 +45,7 @@ export const CLASS_STATS: Record<CharacterClass, Partial<Player>> = {
         attack: 9,
         maxEp: 20,
         ep: 20,
+        defense: 1,
     }
 };
 

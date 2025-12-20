@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef, useReducer } from 'react';
-import { GameState, Item, ItemType, SaveData, CharacterClass, EnemyAbility, SocialChoice, AIPersonality, PlayerAbility, Element, StatusEffectType, StatusEffect, WorldData, GameAction, Enemy, SocialEncounter } from './types';
+import { GameState, Item, ItemType, SaveData, CharacterClass, EnemyAbility, SocialChoice, AIPersonality, PlayerAbility, Element, StatusEffectType, StatusEffect, WorldData, GameAction, Enemy, SocialEncounter, EquipmentSlot } from './types';
 import { generateScene, generateEncounter, generateWorldData, generateExploreResult } from './services/geminiService';
 import { Inventory } from './components/Inventory';
+import { JournalView } from './components/JournalView';
 import { reducer } from './state/reducer';
 import { initialState } from './state/initialState';
 import { StartScreen } from './components/views/StartScreen';
@@ -13,14 +14,14 @@ import { CombatView } from './components/views/CombatView';
 import { SocialEncounterView } from './components/views/SocialEncounterView';
 import { WorldMapView } from './components/views/WorldMapView';
 import { LogView } from './components/views/LogView';
-import { BoltIcon, FireIcon, MapIcon, BagIcon, SpeakerOnIcon, SpeakerOffIcon, BookIcon, ShieldIcon, SaveIcon } from './components/icons';
+import { BoltIcon, FireIcon, MapIcon, BagIcon, SpeakerOnIcon, SpeakerOffIcon, BookIcon, ShieldIcon, SaveIcon, StarIcon } from './components/icons';
 import { JRPG_SAVE_KEY, CRIT_CHANCE, CRIT_MULTIPLIER, FLEE_CHANCE, TRAVEL_ENCOUNTER_CHANCE, STATUS_EFFECT_CONFIG, ENEMY_STATUS_CHANCE, ENEMY_STATUS_MAP } from './constants';
 import { useAudio } from './hooks/useAudio';
 
 interface EventPopup {
   id: number;
   text: string;
-  type: 'info' | 'heal' | 'item' | 'xp';
+  type: 'info' | 'heal' | 'item' | 'xp' | 'quest';
 }
 
 const statusEffectIcons: Record<StatusEffectType, React.ReactNode> = {
@@ -64,6 +65,7 @@ const App: React.FC = () => {
     const [isInventoryOpen, setIsInventoryOpen] = useState(false);
     const [isMapOpen, setIsMapOpen] = useState(false);
     const [isLogOpen, setIsLogOpen] = useState(false);
+    const [isJournalOpen, setIsJournalOpen] = useState(false);
     const [saveFileExists, setSaveFileExists] = useState(false);
     const [showLevelUp, setShowLevelUp] = useState(false);
     const [eventPopups, setEventPopups] = useState<EventPopup[]>([]);
@@ -280,9 +282,10 @@ const App: React.FC = () => {
                 const logMessage = `You use a ${item.name} and recover ${healed} HP.`;
                 appendToLog(logMessage);
                 createEventPopup(`+${healed} HP`, 'heal');
-                setIsInventoryOpen(false);
-
+                // setIsInventoryOpen(false); // keep open for multiple uses? No, traditional JRPG style closes it usually or stays open. Let's keep open for better UX.
+                
                 if (gameState === GameState.COMBAT) {
+                    setIsInventoryOpen(false);
                     dispatch({ type: 'SET_PLAYER_TURN', payload: false });
                 }
             } else {
@@ -290,6 +293,24 @@ const App: React.FC = () => {
             }
         }
     }, [player, appendToLog, gameState, createEventPopup]);
+
+    const handleEquipItem = useCallback((item: Item, index: number) => {
+        dispatch({ type: 'EQUIP_ITEM', payload: { inventoryIndex: index } });
+        createEventPopup(`Equipped ${item.name}`, 'info');
+        if (gameState === GameState.COMBAT) {
+             setIsInventoryOpen(false);
+             dispatch({ type: 'SET_PLAYER_TURN', payload: false });
+        }
+    }, [gameState, createEventPopup]);
+
+    const handleUnequipItem = useCallback((slot: EquipmentSlot) => {
+        dispatch({ type: 'UNEQUIP_ITEM', payload: { slot } });
+        if (gameState === GameState.COMBAT) {
+            setIsInventoryOpen(false);
+            dispatch({ type: 'SET_PLAYER_TURN', payload: false });
+       }
+    }, [gameState]);
+
 
     const loadSceneForCurrentLocation = useCallback(async () => {
         if (!worldData || !playerLocationId) return;
@@ -324,6 +345,7 @@ const App: React.FC = () => {
         if (action === 'attack' && payload?.targetIndex !== undefined) {
             const target = enemies[payload.targetIndex];
             const isCrit = Math.random() < CRIT_CHANCE;
+            // Uses updated player.attack which includes equipment
             let damage = Math.floor(player.attack + (Math.random() * 5 - 2));
             if (isCrit) {
                 damage = Math.floor(damage * CRIT_MULTIPLIER);
@@ -370,6 +392,8 @@ const App: React.FC = () => {
                 createEventPopup(`+${choice.reward.value} XP`, 'xp');
             } else if (choice.reward.type === 'ITEM' && choice.reward.item) {
                 createEventPopup(`Found: ${choice.reward.item.name}!`, 'item');
+            } else if (choice.reward.type === 'QUEST' && choice.reward.quest) {
+                createEventPopup(`Quest: ${choice.reward.quest.title}`, 'quest');
             }
         }
     
@@ -466,17 +490,24 @@ const App: React.FC = () => {
                         case EnemyAbility.DRAIN_LIFE:
                             const drainDamage = Math.floor(enemy.attack * 0.8 + (Math.random() * 4 - 2));
                             const playerDamageTakenDrain = player.isDefending ? Math.max(1, Math.floor(drainDamage / 2)) : drainDamage;
-                            currentHp = Math.max(0, currentHp - playerDamageTakenDrain);
+                            // Defense reduction from armor
+                            const finalDamageDrain = Math.max(1, playerDamageTakenDrain - (player.defense || 0));
+                            
+                            currentHp = Math.max(0, currentHp - finalDamageDrain);
                             dispatch({ type: 'UPDATE_PLAYER', payload: { hp: currentHp } });
-                            dispatch({type: 'ENEMY_ACTION_DRAIN_LIFE', payload: { enemyIndex: i, damage: playerDamageTakenDrain }})
-                            appendToLog(`${enemy.name} drains ${playerDamageTakenDrain} HP from you!`);
+                            dispatch({type: 'ENEMY_ACTION_DRAIN_LIFE', payload: { enemyIndex: i, damage: finalDamageDrain }})
+                            appendToLog(`${enemy.name} drains ${finalDamageDrain} HP from you!`);
                             break;
                         case EnemyAbility.MULTI_ATTACK:
                             for (let j=0; j<2; j++) {
                                 if(currentHp > 0) {
                                     await new Promise(resolve => setTimeout(resolve, 500));
                                     const multiDamage = Math.floor(enemy.attack * 0.7 + (Math.random() * 3 - 1));
-                                    const playerDamageTakenMulti = player.isDefending ? Math.max(1, Math.floor(multiDamage / 2)) : multiDamage;
+                                    let playerDamageTakenMulti = player.isDefending ? Math.max(1, Math.floor(multiDamage / 2)) : multiDamage;
+                                    
+                                    // Defense reduction
+                                    playerDamageTakenMulti = Math.max(1, playerDamageTakenMulti - (player.defense || 0));
+                                    
                                     currentHp = Math.max(0, currentHp - playerDamageTakenMulti);
                                     dispatch({ type: 'UPDATE_PLAYER', payload: { hp: currentHp } });
                                     appendToLog(`${enemy.name} strikes! You take ${playerDamageTakenMulti} damage.`);
@@ -506,6 +537,9 @@ const App: React.FC = () => {
                      if (player.statusEffects.some(e => e.type === StatusEffectType.EARTH_ARMOR)) {
                         playerDamageTaken = Math.floor(playerDamageTaken * (1 - STATUS_EFFECT_CONFIG.EARTH_ARMOR.defenseBonus));
                     }
+                    
+                    // Defense Reduction (Flat armor mitigation)
+                    playerDamageTaken = Math.max(1, playerDamageTaken - (player.defense || 0));
 
                     const newPlayerHp = Math.max(0, currentHp - playerDamageTaken);
                     currentHp = newPlayerHp;
@@ -638,8 +672,16 @@ const App: React.FC = () => {
                 isOpen={isInventoryOpen}
                 onClose={() => setIsInventoryOpen(false)}
                 inventory={player.inventory}
+                player={player}
                 onUseItem={handleUseItem}
+                onEquipItem={handleEquipItem}
+                onUnequipItem={handleUnequipItem}
                 disabled={!isPlayerTurn && gameState === GameState.COMBAT}
+            />
+            <JournalView
+                isOpen={isJournalOpen}
+                onClose={() => setIsJournalOpen(false)}
+                player={player}
             />
             <WorldMapView
                 isOpen={isMapOpen}
@@ -687,6 +729,7 @@ const App: React.FC = () => {
                                                 <div className="text-right text-base mt-1">
                                                     <span>Lvl: <span className="font-bold text-white">{player.level}</span></span>
                                                     <span className="ml-2">Atk: <span className="font-bold text-white">{player.attack}</span></span>
+                                                    <span className="ml-2">Def: <span className="font-bold text-blue-300">{player.defense}</span></span>
                                                 </div>
                                             </div>
 
@@ -766,6 +809,13 @@ const App: React.FC = () => {
                                         <BagIcon className="w-7 h-7" />
                                     </button>
                                 )}
+                                <button 
+                                    onClick={() => setIsJournalOpen(true)}
+                                    className="flex items-center justify-center text-lg bg-amber-700 hover:bg-amber-600 text-white font-bold p-2 rounded-lg border-2 border-amber-500 transition-all duration-200 transform hover:scale-105"
+                                    aria-label="Journal"
+                                >
+                                    <StarIcon className="w-7 h-7"/>
+                                </button>
                                 <button 
                                     onClick={() => setIsLogOpen(true)}
                                     className="flex items-center justify-center text-lg bg-yellow-700 hover:bg-yellow-600 text-white font-bold p-2 rounded-lg border-2 border-yellow-500 transition-all duration-200 transform hover:scale-105"

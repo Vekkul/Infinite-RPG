@@ -1,12 +1,10 @@
+
 import React from 'react';
 
 export const SwordIcon = ({ className = "w-6 h-6", title }: { className?: string; title?: string }) => (
-  <svg xmlns="http://www.w.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="currentColor" stroke="none">
     {title && <title>{title}</title>}
-    <path d="M14.5 17.5l-10-10" />
-    <path d="M5 12.5l-1.5 1.5a2.83 2.83 0 0 0 4 4L9 16.5" />
-    <path d="M16 3l5 5" />
-    <path d="M17 8l-1.5-1.5a2.83 2.83 0 0 0-4-4L10 4" />
+    <path d="M21.21 6.51L17.49 2.79C17.29 2.59 16.98 2.59 16.79 2.79L9.21 10.38L6.71 7.88L5.29 9.29L7.79 11.79L2.21 17.38C2.01 17.58 2.01 17.89 2.21 18.09L5.91 21.79C6.11 21.99 6.42 21.99 6.62 21.79L12.21 16.21L14.71 18.71L16.12 17.29L13.62 14.79L21.21 7.21C21.41 7.01 21.41 6.7 21.21 6.51ZM5.91 20.38L3.62 18.09L8.5 13.21L10.79 15.5L5.91 20.38Z" />
   </svg>
 );
 

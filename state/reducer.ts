@@ -1,4 +1,5 @@
-import { AppState, Action, GameState, Item, Player, CharacterClass, Enemy, RewardType, MapLocation, PlayerAbility, StatusEffect, StatusEffectType, Element } from '../types';
+
+import { AppState, Action, GameState, Item, Player, CharacterClass, Enemy, RewardType, MapLocation, PlayerAbility, StatusEffect, StatusEffectType, Element, ItemType, EquipmentSlot, Quest } from '../types';
 import { initialState } from './initialState';
 import { CLASS_STATS, PLAYER_ABILITIES, ELEMENTAL_RESISTANCES, STATUS_EFFECT_CONFIG } from '../constants';
 
@@ -9,7 +10,7 @@ const appendToLog = (log: string[], message: string): string[] => {
 const addItemToInventory = (inventory: Item[], itemDef: Omit<Item, 'quantity'>): Item[] => {
     const newInventory = [...inventory];
     const existingItemStackIndex = newInventory.findIndex(
-        i => i.name === itemDef.name && i.quantity < i.stackLimit
+        i => i.name === itemDef.name && i.type === itemDef.type && i.quantity < i.stackLimit
     );
 
     if (existingItemStackIndex !== -1) {
@@ -23,27 +24,52 @@ const addItemToInventory = (inventory: Item[], itemDef: Omit<Item, 'quantity'>):
     return newInventory;
 };
 
+const calculatePlayerStats = (player: Player): { attack: number, defense: number, maxHp: number } => {
+    const baseStats = CLASS_STATS[player.class];
+    const levelBonusHp = (player.level - 1) * 20;
+    const levelBonusAtk = (player.level - 1) * 5;
+
+    let attack = (baseStats.attack || 10) + levelBonusAtk;
+    let maxHp = (baseStats.maxHp || 50) + levelBonusHp;
+    let defense = (baseStats.defense || 0);
+
+    // Add Equipment Stats
+    if (player.equipment[EquipmentSlot.MAIN_HAND]) {
+        attack += player.equipment[EquipmentSlot.MAIN_HAND]?.value || 0;
+    }
+    if (player.equipment[EquipmentSlot.BODY]) {
+        defense += player.equipment[EquipmentSlot.BODY]?.value || 0;
+    }
+
+    return { attack, defense, maxHp };
+};
+
 const handleLevelUp = (currentPlayer: Player): { updatedPlayer: Player; logs: string[] } => {
     const newLevel = currentPlayer.level + 1;
-    const newMaxHp = currentPlayer.maxHp + 20;
-    const newAttack = currentPlayer.attack + 5;
     const newXpToNextLevel = Math.floor(currentPlayer.xpToNextLevel * 1.5);
+
+    // Apply strict base stat increases for level up to the *base*, recalculate totals
+    // Since we dynamically calculate stats now based on level, we just increment level.
+    // However, we need to update current HP/MP/EP caps.
+    
+    let updatedPlayer: Player = {
+        ...currentPlayer,
+        level: newLevel,
+        xp: currentPlayer.xp - currentPlayer.xpToNextLevel,
+        xpToNextLevel: newXpToNextLevel,
+    };
+    
+    const stats = calculatePlayerStats(updatedPlayer);
+    updatedPlayer.maxHp = stats.maxHp;
+    updatedPlayer.attack = stats.attack;
+    updatedPlayer.defense = stats.defense;
+    updatedPlayer.hp = stats.maxHp; // Full heal on level up
 
     const logs = [
         `LEVEL UP! You are now level ${newLevel}!`,
         `HP and Attack increased!`
     ];
 
-    const updatedPlayer: Player = {
-        ...currentPlayer,
-        level: newLevel,
-        hp: newMaxHp,
-        maxHp: newMaxHp,
-        attack: newAttack,
-        xp: currentPlayer.xp - currentPlayer.xpToNextLevel, // Carry over remaining XP
-        xpToNextLevel: newXpToNextLevel,
-    };
-    
     if (updatedPlayer.class === CharacterClass.MAGE) {
         const newMaxMp = (updatedPlayer.maxMp || 0) + 10;
         updatedPlayer.maxMp = newMaxMp;
@@ -55,7 +81,6 @@ const handleLevelUp = (currentPlayer: Player): { updatedPlayer: Player; logs: st
         updatedPlayer.ep = newMaxEp;
         logs.push('Max EP increased!');
     }
-
 
     return { updatedPlayer, logs };
 };
@@ -97,6 +122,7 @@ export const reducer = (state: AppState, action: Action): AppState => {
             class: characterClass,
             portrait,
             statusEffects: [],
+            journal: { quests: [], flags: [], notes: [] }, // Ensure journal is init
         };
 
         return {
@@ -199,6 +225,7 @@ export const reducer = (state: AppState, action: Action): AppState => {
             newPlayerState.ep = (newPlayerState.ep || 0) - abilityDetails.cost;
         }
         
+        // Damage calculation uses player attack which now includes equipment
         let damage = Math.floor(state.player.attack * abilityDetails.damageMultiplier + (Math.random() * 5));
 
         // Check for elemental resistance
@@ -305,6 +332,67 @@ export const reducer = (state: AppState, action: Action): AppState => {
         return { ...state, player: { ...state.player, inventory: newInventory } };
     }
 
+    case 'EQUIP_ITEM': {
+        const itemIndex = action.payload.inventoryIndex;
+        const itemToEquip = state.player.inventory[itemIndex];
+        
+        if (!itemToEquip.slot) return state; // Should not happen
+
+        let newInventory = [...state.player.inventory];
+        let newEquipment = { ...state.player.equipment };
+        let newLog = [...state.log];
+
+        // Unequip current item in that slot if exists
+        if (newEquipment[itemToEquip.slot]) {
+            const unequippedItem = newEquipment[itemToEquip.slot]!;
+            newInventory = addItemToInventory(newInventory, unequippedItem);
+            newLog = appendToLog(newLog, `Unequipped ${unequippedItem.name}.`);
+        }
+
+        // Equip new item
+        newEquipment[itemToEquip.slot] = { ...itemToEquip, quantity: 1 };
+        newLog = appendToLog(newLog, `Equipped ${itemToEquip.name}.`);
+
+        // Remove from inventory
+        const itemStack = { ...newInventory[itemIndex] };
+        itemStack.quantity -= 1;
+        if (itemStack.quantity <= 0) {
+            newInventory.splice(itemIndex, 1);
+        } else {
+            newInventory[itemIndex] = itemStack;
+        }
+
+        // Recalculate stats
+        let tempPlayer = { ...state.player, inventory: newInventory, equipment: newEquipment };
+        const newStats = calculatePlayerStats(tempPlayer);
+
+        return {
+            ...state,
+            player: { ...tempPlayer, ...newStats },
+            log: newLog
+        };
+    }
+
+    case 'UNEQUIP_ITEM': {
+        const slot = action.payload.slot;
+        if (!state.player.equipment[slot]) return state;
+
+        let newEquipment = { ...state.player.equipment };
+        const itemToUnequip = newEquipment[slot]!;
+        delete newEquipment[slot];
+
+        let newInventory = addItemToInventory(state.player.inventory, itemToUnequip);
+        
+        let tempPlayer = { ...state.player, inventory: newInventory, equipment: newEquipment };
+        const newStats = calculatePlayerStats(tempPlayer);
+
+        return {
+            ...state,
+            player: { ...tempPlayer, ...newStats },
+            log: appendToLog(state.log, `Unequipped ${itemToUnequip.name}.`)
+        };
+    }
+
     case 'ENEMY_ACTION_HEAL': {
       const { enemyIndex, healAmount } = action.payload;
       const enemiesCopy = [...state.enemies];
@@ -336,7 +424,7 @@ export const reducer = (state: AppState, action: Action): AppState => {
     case 'APPLY_STATUS_EFFECT': {
         let newLog = [...state.log];
         if (action.payload.target === 'player') {
-            const { target: updatedPlayer, log: effectLog } = applyStatusEffect(state.player, action.payload.effect);
+            const { target: updatedPlayer, log: effectLog } = applyStatusEffect(state.player.hp > 0 ? state.player : state.player, action.payload.effect);
             newLog = appendToLog(newLog, effectLog);
             return { ...state, player: updatedPlayer as Player, log: newLog };
         } else if (action.payload.target === 'enemy' && action.payload.index !== undefined) {
@@ -411,6 +499,15 @@ export const reducer = (state: AppState, action: Action): AppState => {
         let newLog = appendToLog(state.log, choice.outcome);
         let updatedPlayer = { ...state.player };
         let newInventory = [...state.player.inventory];
+        let newJournal = { ...state.player.journal };
+
+        if (choice.flagUpdate) {
+            // Check if flag already exists to avoid duplicates
+            if (!newJournal.flags.includes(choice.flagUpdate)) {
+                newJournal.flags = [...newJournal.flags, choice.flagUpdate];
+                // Don't log this explicitly, it's a "behind the scenes" update usually, or subtle.
+            }
+        }
 
         if (choice.reward) {
             switch (choice.reward.type) {
@@ -425,10 +522,20 @@ export const reducer = (state: AppState, action: Action): AppState => {
                         newLog = appendToLog(newLog, `You obtained a ${choice.reward.item.name}!`);
                     }
                     break;
+                case RewardType.QUEST:
+                    if (choice.reward.quest) {
+                        // Avoid duplicate quests
+                        if (!newJournal.quests.some(q => q.id === choice.reward.quest!.id)) {
+                             newJournal.quests = [...newJournal.quests, choice.reward.quest];
+                             newLog = appendToLog(newLog, `Quest Started: ${choice.reward.quest.title}`);
+                        }
+                    }
+                    break;
             }
         }
         
         updatedPlayer.inventory = newInventory;
+        updatedPlayer.journal = newJournal;
 
         if (updatedPlayer.xp >= updatedPlayer.xpToNextLevel) {
             const { updatedPlayer: leveledUpPlayer, logs: levelUpLogs } = handleLevelUp(updatedPlayer);
@@ -442,6 +549,49 @@ export const reducer = (state: AppState, action: Action): AppState => {
             log: newLog,
             socialEncounter: null,
         };
+    }
+
+    case 'ADD_QUEST': {
+        const newJournal = { ...state.player.journal };
+        if (!newJournal.quests.some(q => q.id === action.payload.id)) {
+            newJournal.quests = [...newJournal.quests, action.payload];
+            return {
+                ...state,
+                player: { ...state.player, journal: newJournal },
+                log: appendToLog(state.log, `Quest Started: ${action.payload.title}`)
+            };
+        }
+        return state;
+    }
+
+    case 'UPDATE_QUEST_STATUS': {
+        const newJournal = { ...state.player.journal };
+        const questIndex = newJournal.quests.findIndex(q => q.id === action.payload.id);
+        if (questIndex !== -1) {
+            const updatedQuests = [...newJournal.quests];
+            updatedQuests[questIndex] = { ...updatedQuests[questIndex], status: action.payload.status };
+            newJournal.quests = updatedQuests;
+            
+            let logMsg = '';
+            if (action.payload.status === 'COMPLETED') logMsg = `Quest Completed: ${updatedQuests[questIndex].title}`;
+            if (action.payload.status === 'FAILED') logMsg = `Quest Failed: ${updatedQuests[questIndex].title}`;
+            
+            return {
+                ...state,
+                player: { ...state.player, journal: newJournal },
+                log: logMsg ? appendToLog(state.log, logMsg) : state.log
+            };
+        }
+        return state;
+    }
+
+    case 'ADD_JOURNAL_FLAG': {
+         const newJournal = { ...state.player.journal };
+         if (!newJournal.flags.includes(action.payload)) {
+             newJournal.flags = [...newJournal.flags, action.payload];
+             return { ...state, player: { ...state.player, journal: newJournal } };
+         }
+         return state;
     }
 
     default:
