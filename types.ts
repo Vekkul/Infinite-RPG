@@ -155,11 +155,17 @@ export interface Reward {
     quest?: Quest; // for quest
 }
 
+export interface QuestUpdate {
+    questId: string;
+    status: 'COMPLETED' | 'FAILED';
+}
+
 export interface SocialChoice {
     label: string;
     outcome: string;
     reward?: Reward;
     flagUpdate?: string; // New: Add a narrative flag if chosen
+    questUpdate?: QuestUpdate; // New: Update quest status
 }
 
 export interface SocialEncounter {

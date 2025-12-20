@@ -502,11 +502,21 @@ export const reducer = (state: AppState, action: Action): AppState => {
         let newJournal = { ...state.player.journal };
 
         if (choice.flagUpdate) {
-            // Check if flag already exists to avoid duplicates
             if (!newJournal.flags.includes(choice.flagUpdate)) {
                 newJournal.flags = [...newJournal.flags, choice.flagUpdate];
-                // Don't log this explicitly, it's a "behind the scenes" update usually, or subtle.
             }
+        }
+        
+        // Handle Quest Updates
+        if (choice.questUpdate) {
+             const qIndex = newJournal.quests.findIndex(q => q.id === choice.questUpdate!.questId);
+             if (qIndex !== -1) {
+                 const updatedQuests = [...newJournal.quests];
+                 updatedQuests[qIndex] = { ...updatedQuests[qIndex], status: choice.questUpdate!.status };
+                 newJournal.quests = updatedQuests;
+                 const statusText = choice.questUpdate!.status === 'COMPLETED' ? 'Completed' : 'Failed';
+                 newLog = appendToLog(newLog, `Quest ${statusText}: ${updatedQuests[qIndex].title}`);
+             }
         }
 
         if (choice.reward) {

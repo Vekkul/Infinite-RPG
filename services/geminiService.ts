@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { Player, GameAction, Item, ItemType, EnemyAbility, CharacterClass, SocialEncounter, RewardType, AIPersonality, MapLocation, WorldData, Element, Enemy, SocialChoice, EquipmentSlot, Quest } from '../types';
+import { Player, GameAction, Item, ItemType, EnemyAbility, CharacterClass, SocialEncounter, RewardType, AIPersonality, MapLocation, WorldData, Element, Enemy, SocialChoice, EquipmentSlot, Quest, QuestUpdate } from '../types';
 
 // Helper to get a fresh instance of the API client
 const getAi = () => new GoogleGenAI({ apiKey: process.env.API_KEY as string });
@@ -20,6 +20,15 @@ const questSchema = {
         status: { type: Type.STRING, enum: ['ACTIVE'], description: "Initial status." }
     },
     required: ["id", "title", "description", "status"]
+};
+
+const questUpdateSchema = {
+    type: Type.OBJECT,
+    properties: {
+        questId: { type: Type.STRING, description: "The ID of the quest to update. MUST match an ID from the context." },
+        status: { type: Type.STRING, enum: ['COMPLETED', 'FAILED'], description: "The new status of the quest." }
+    },
+    required: ["questId", "status"]
 };
 
 const itemSchema = {
@@ -78,7 +87,8 @@ const socialChoiceSchema = {
                 quest: { ...questSchema, description: "For a QUEST reward, describe the new quest." }
             },
             required: ["type"]
-        }
+        },
+        questUpdate: { ...questUpdateSchema, description: "Optional: Update an existing active quest status if this choice completes it." }
     },
     required: ["label", "outcome"]
 };
@@ -107,7 +117,8 @@ const exploreResultSchema = {
             type: Type.ARRAY,
             description: "An array of 2 choices. ONLY include if nextSceneType is 'SOCIAL'.",
             items: socialChoiceSchema
-        }
+        },
+        questUpdate: { ...questUpdateSchema, description: "Optional: If this action logically completes an ACTIVE quest from the context, update it here." }
     },
     required: ["description", "nextSceneType"]
 };
@@ -203,7 +214,15 @@ const worldDataSchema = {
 const getContextString = (player: Player) => {
     let context = `Player Context: Level ${player.level} ${player.class}.`;
     if (player.journal.quests.length > 0) {
-        context += ` Active Quests: ${player.journal.quests.map(q => q.title).join(', ')}.`;
+        // IMPORTANT: Sending IDs so the AI can reference them in updates.
+        const activeQuests = player.journal.quests
+            .filter(q => q.status === 'ACTIVE')
+            .map(q => `${q.title} (ID: ${q.id}: ${q.description})`)
+            .join(', ');
+        
+        if (activeQuests) {
+             context += ` Active Quests: ${activeQuests}.`;
+        }
     }
     if (player.journal.flags.length > 0) {
         context += ` Narrative Flags (Events that happened): ${player.journal.flags.join(', ')}.`;
@@ -211,12 +230,12 @@ const getContextString = (player: Player) => {
     return context;
 };
 
-export const generateExploreResult = async (player: Player, action: GameAction): Promise<{ description: string; nextSceneType: 'EXPLORATION' | 'SOCIAL' | 'COMBAT'; localActions?: GameAction[]; foundItem?: Omit<Item, 'quantity'>; socialChoices?: SocialChoice[]; isFallback?: boolean; }> => {
+export const generateExploreResult = async (player: Player, action: GameAction): Promise<{ description: string; nextSceneType: 'EXPLORATION' | 'SOCIAL' | 'COMBAT'; localActions?: GameAction[]; foundItem?: Omit<Item, 'quantity'>; socialChoices?: SocialChoice[]; questUpdate?: QuestUpdate; isFallback?: boolean; }> => {
     try {
         const context = getContextString(player);
         const response = await getAi().models.generateContent({
             model: TEXT_MODEL,
-            contents: `Context: ${context}. The player decided to: "${action.label}". Generate a logically consistent result that respects the narrative flags. The 'description' must vividly narrate the outcome and set up the next scene. For EXPLORATION, describe the action's result and the current scene. For SOCIAL/COMBAT, provide the lead-in text. E.g., for 'Search a chest', 'description' could be 'You open the chest and find a healing potion. The dusty room is otherwise empty.', with nextSceneType 'EXPLORATION'. Trigger COMBAT sparingly.`,
+            contents: `Context: ${context}. The player decided to: "${action.label}". Generate a logically consistent result that respects the narrative flags. The 'description' must vividly narrate the outcome and set up the next scene. For EXPLORATION, describe the action's result and the current scene. If the player's action and location logically conclude an ACTIVE quest (e.g., they found the item or person described in the quest ID/Description), strictly use 'questUpdate' to mark it COMPLETED. For SOCIAL/COMBAT, provide the lead-in text. E.g., for 'Search a chest', 'description' could be 'You open the chest and find a healing potion. The dusty room is otherwise empty.', with nextSceneType 'EXPLORATION'. Trigger COMBAT sparingly.`,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: "application/json",
@@ -233,6 +252,7 @@ export const generateExploreResult = async (player: Player, action: GameAction):
             localActions: data.localActions,
             foundItem: data.foundItem,
             socialChoices: data.socialChoices,
+            questUpdate: data.questUpdate,
         };
 
     } catch (error) {

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef, useReducer } from 'react';
 import { GameState, Item, ItemType, SaveData, CharacterClass, EnemyAbility, SocialChoice, AIPersonality, PlayerAbility, Element, StatusEffectType, StatusEffect, WorldData, GameAction, Enemy, SocialEncounter, EquipmentSlot } from './types';
 import { generateScene, generateEncounter, generateWorldData, generateExploreResult } from './services/geminiService';
@@ -69,6 +70,7 @@ const App: React.FC = () => {
     const [saveFileExists, setSaveFileExists] = useState(false);
     const [showLevelUp, setShowLevelUp] = useState(false);
     const [eventPopups, setEventPopups] = useState<EventPopup[]>([]);
+    const [isSaving, setIsSaving] = useState(false); // New state for button feedback
 
     const enemyTurnInProgress = useRef(false);
     const prevLevelRef = useRef(player.level);
@@ -148,12 +150,28 @@ const App: React.FC = () => {
     }, [handleFoundItem, appendToLog, handleFallback]);
 
     const saveGame = useCallback(() => {
-        if (!worldData || !playerLocationId) return;
+        if (!worldData || !playerLocationId) {
+            createEventPopup("Cannot save: Invalid state", 'info');
+            return;
+        }
+        
         const saveData: SaveData = { player, storyText, actions, log, worldData, playerLocationId };
-        localStorage.setItem(JRPG_SAVE_KEY, JSON.stringify(saveData));
-        setSaveFileExists(true);
-        appendToLog('Game Saved!');
-        createEventPopup('Game Saved!', 'info');
+        
+        try {
+            localStorage.setItem(JRPG_SAVE_KEY, JSON.stringify(saveData));
+            setSaveFileExists(true);
+            
+            // UI Feedback
+            setIsSaving(true);
+            appendToLog('Game Saved!');
+            createEventPopup('Game Saved!', 'info');
+            
+            setTimeout(() => setIsSaving(false), 2000);
+        } catch (e) {
+            console.error("Save failed", e);
+            createEventPopup('Save Failed!', 'info');
+            appendToLog('Error: Could not save game (Storage full?)');
+        }
     }, [player, storyText, actions, log, worldData, playerLocationId, appendToLog, createEventPopup]);
 
     const loadGame = useCallback(() => {
@@ -189,6 +207,15 @@ const App: React.FC = () => {
             if (result.isFallback) handleFallback();
     
             appendToLog(result.description);
+            
+            // Handle Quest Updates from Exploration
+            if (result.questUpdate) {
+                const quest = player.journal.quests.find(q => q.id === result.questUpdate?.questId);
+                if (quest) {
+                    dispatch({ type: 'UPDATE_QUEST_STATUS', payload: { id: result.questUpdate.questId, status: result.questUpdate.status } });
+                    createEventPopup(`Quest ${result.questUpdate.status === 'COMPLETED' ? 'Complete' : 'Failed'}: ${quest.title}`, 'quest');
+                }
+            }
     
             if (result.nextSceneType === 'EXPLORATION') {
                 if (worldData && playerLocationId) {
@@ -223,7 +250,7 @@ const App: React.FC = () => {
                 dispatch({ type: 'SET_PLAYER_TURN', payload: true });
             }
         }
-    }, [player, appendToLog, handleFoundItem, worldData, playerLocationId, handleFallback, actions]);
+    }, [player, appendToLog, handleFoundItem, worldData, playerLocationId, handleFallback, actions, createEventPopup]);
 
     useEffect(() => {
         const prevLocationId = prevPlayerLocationId.current;
@@ -386,6 +413,14 @@ const App: React.FC = () => {
         dispatch({ type: 'SET_GAME_STATE', payload: GameState.LOADING });
     
         dispatch({ type: 'RESOLVE_SOCIAL_CHOICE', payload: { choice } });
+        
+        // Handle popup for Quest Completion via Social Choice
+        if (choice.questUpdate) {
+             const quest = player.journal.quests.find(q => q.id === choice.questUpdate?.questId);
+             if (quest) {
+                createEventPopup(`Quest ${choice.questUpdate.status === 'COMPLETED' ? 'Complete' : 'Failed'}: ${quest.title}`, 'quest');
+             }
+        }
 
         if (choice.reward) {
             if (choice.reward.type === 'XP' && choice.reward.value) {
@@ -834,10 +869,10 @@ const App: React.FC = () => {
                                         </button>
                                         <button 
                                           onClick={saveGame} 
-                                          className="flex items-center justify-center text-lg bg-indigo-700 hover:bg-indigo-600 text-white font-bold p-2 rounded-lg border-2 border-indigo-500 transition-all duration-200 transform hover:scale-105"
+                                          className={`flex items-center justify-center text-lg font-bold p-2 rounded-lg border-2 transition-all duration-200 transform hover:scale-105 ${isSaving ? 'bg-green-600 border-green-400' : 'bg-indigo-700 hover:bg-indigo-600 border-indigo-500 text-white'}`}
                                           aria-label="Save Game"
                                         >
-                                            <SaveIcon className="w-7 h-7" />
+                                            {isSaving ? "Saved!" : <SaveIcon className="w-7 h-7" />}
                                         </button>
                                     </>
                                 )}
