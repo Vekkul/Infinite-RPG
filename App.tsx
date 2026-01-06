@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef, useReducer, useMemo } from 'react';
 import { GameState, Item, ItemType, SaveData, CharacterClass, EnemyAbility, SocialChoice, AIPersonality, PlayerAbility, Element, StatusEffectType, StatusEffect, WorldData, GameAction, Enemy, SocialEncounter, EquipmentSlot, AppSettings } from './types';
 import { generateScene, generateEncounter, generateWorldData, generateExploreResult } from './services/geminiService';
@@ -748,9 +747,16 @@ const App: React.FC = () => {
             )}
             <div className="flex flex-col flex-grow justify-between min-w-0 h-full">
                 <div>
-                    <div className="flex justify-between items-baseline mb-1">
-                        <h2 className="text-base md:text-xl font-press-start text-blue-300 truncate">{player.name}</h2>
-                        <span className="text-xs md:text-sm text-gray-400">Lvl {player.level} {player.class}</span>
+                    <div className="flex justify-between items-center mb-1">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                            <h2 className="text-base md:text-xl font-press-start text-blue-300 truncate">{player.name}</h2>
+                            <div className="flex items-center gap-1">
+                                {player.statusEffects.map((effect, i) => (
+                                    <div key={i} title={effect.type} className="animate-pulse">{statusEffectIcons[effect.type]}</div>
+                                ))}
+                            </div>
+                        </div>
+                        <span className="text-xs md:text-sm text-gray-400 shrink-0 ml-2">Lvl {player.level} {player.class}</span>
                     </div>
                     <div className="flex justify-between text-xs md:text-sm mb-1 text-gray-300 font-mono">
                         <span>ATK: <span className="text-red-300">{player.attack}</span></span>

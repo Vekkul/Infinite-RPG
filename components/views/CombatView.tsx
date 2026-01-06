@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback } from 'react';
 import { Enemy, EnemyAbility, Player, CharacterClass, PlayerAbility, StatusEffectType, Element } from '../../types';
 import { StatusBar } from '../StatusBar';
@@ -43,7 +42,7 @@ const EnemyUnit = React.memo(({ enemy, index, damagePopups }: { enemy: Enemy, in
                 </div>
             ))}
             
-            <div className="flex items-center justify-center gap-1.5 mb-1 relative z-10">
+            <div className="flex items-center justify-center gap-1.5 mb-1 relative z-10 flex-wrap">
                 <h2 className="text-lg font-press-start text-red-300 truncate max-w-[70%]" title={enemy.name}>{enemy.name}</h2>
                 
                 {/* Info Tooltip */}
@@ -67,17 +66,17 @@ const EnemyUnit = React.memo(({ enemy, index, damagePopups }: { enemy: Enemy, in
                 {enemy.ability === EnemyAbility.SHIELD && <ShieldIcon className="w-5 h-5 text-cyan-400" title="Shield Ability" />}
                 {enemy.ability === EnemyAbility.DRAIN_LIFE && <BoltIcon className="w-5 h-5 text-purple-400" title="Drain Life Ability" />}
                 {enemy.ability === EnemyAbility.MULTI_ATTACK && <SwordIcon className="w-5 h-5 text-orange-400" title="Multi-Attack Ability" />}
-            </div>
 
-            <StatusBar label="HP" currentValue={enemy.hp} maxValue={enemy.maxHp} colorClass="bg-red-500" />
-            
-            <div className="flex justify-center items-center gap-1.5 mt-2 h-5">
+                {/* Status Effects next to name */}
                 {enemy.statusEffects.map(effect => (
-                    <div key={effect.type} className="relative group">
+                    <div key={effect.type} title={effect.type} className="animate-pulse">
                         {statusEffectIcons[effect.type]}
                     </div>
                 ))}
             </div>
+
+            <StatusBar label="HP" currentValue={enemy.hp} maxValue={enemy.maxHp} colorClass="bg-red-500" />
+            
         </div>
     );
 }, (prev, next) => {
