@@ -48,7 +48,7 @@ const App: React.FC = () => {
     const [showLevelUp, setShowLevelUp] = useState(false);
     const [eventPopups, setEventPopups] = useState<EventPopup[]>([]);
     const [isSaving, setIsSaving] = useState(false);
-    const [settings, setSettings] = useState<AppSettings>({ crtEnabled: true, textSpeed: 30 });
+    const [settings, setSettings] = useState<AppSettings>({ crtEnabled: false, textSpeed: 30 });
 
     const enemyTurnInProgress = useRef(false);
     const prevLevelRef = useRef(player.level);
