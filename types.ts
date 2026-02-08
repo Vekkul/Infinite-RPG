@@ -212,6 +212,13 @@ export interface AppSettings {
     textSpeed: number;
 }
 
+// --- UI Types ---
+export interface EventPopup {
+  id: number;
+  text: string;
+  type: 'info' | 'heal' | 'item' | 'xp' | 'quest';
+}
+
 // --- Reducer State & Actions ---
 
 export interface AppState {
