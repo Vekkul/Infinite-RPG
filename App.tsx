@@ -20,6 +20,7 @@ import { SettingsView } from './components/views/SettingsView';
 import { BoltIcon, FireIcon, MapIcon, BagIcon, SpeakerOnIcon, SpeakerOffIcon, BookIcon, ShieldIcon, SaveIcon, StarIcon, SettingsIcon } from './components/icons';
 import { CRIT_CHANCE, CRIT_MULTIPLIER, FLEE_CHANCE, TRAVEL_ENCOUNTER_CHANCE, STATUS_EFFECT_CONFIG, ENEMY_STATUS_CHANCE, ENEMY_STATUS_MAP } from './constants';
 import { useAudio } from './hooks/useAudio';
+import { useAsset } from './hooks/useAsset';
 
 interface EventPopup {
   id: number;
@@ -34,6 +35,80 @@ const statusEffectIcons: Record<StatusEffectType, React.ReactNode> = {
     [StatusEffectType.GROUNDED]: <span className="text-amber-700 text-xl">⛰️</span>,
     [StatusEffectType.EARTH_ARMOR]: <ShieldIcon className="w-5 h-5 text-green-500" />,
 };
+
+const PlayerStatusCard = React.memo(({ player }: { player: any }) => {
+    const { assetUrl } = useAsset(player.portrait);
+    
+    return (
+        <div className="bg-gray-800/90 p-2 md:p-3 rounded-lg border-2 border-blue-500 shadow-lg flex flex-row gap-4 items-center w-full max-w-6xl mx-auto">
+            <div className="w-16 h-16 md:w-20 md:h-20 bg-black rounded-md border-2 border-gray-600 shrink-0 overflow-hidden relative">
+                {assetUrl ? (
+                    <img src={assetUrl} alt="Player" className="w-full h-full object-cover rounded-sm image-rendering-pixelated" />
+                ) : (
+                    <div className="w-full h-full bg-gray-800 animate-pulse"></div>
+                )}
+            </div>
+            <div className="flex flex-col flex-grow justify-between min-w-0 h-full">
+                <div>
+                    <div className="flex justify-between items-center mb-1">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                            <h2 className="text-base md:text-xl font-press-start text-blue-300 truncate">{player.name}</h2>
+                            <div className="flex items-center gap-1">
+                                {player.statusEffects.map((effect: any, i: number) => (
+                                    <div key={i} title={effect.type} className="animate-pulse">{statusEffectIcons[effect.type as StatusEffectType]}</div>
+                                ))}
+                            </div>
+                        </div>
+                        <span className="text-xs md:text-sm text-gray-400 shrink-0 ml-2">Lvl {player.level} {player.class}</span>
+                    </div>
+                    <div className="flex justify-between text-xs md:text-sm mb-1 text-gray-300 font-mono">
+                        <span>ATK: <span className="text-red-300">{player.attack}</span></span>
+                        <span>DEF: <span className="text-blue-300">{player.defense}</span></span>
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-1 w-full mt-1">
+                    <div className="w-full bg-black/50 rounded-full h-3 md:h-4 border border-gray-600 relative overflow-hidden">
+                        <div className="bg-red-500 h-full transition-all duration-500" style={{ width: `${(player.hp / player.maxHp) * 100}%` }}></div>
+                        <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md">
+                            {player.hp}/{player.maxHp} HP
+                        </div>
+                    </div>
+                    {player.class === CharacterClass.MAGE && (
+                         <div className="w-full bg-black/50 rounded-full h-3 md:h-4 border border-gray-600 relative overflow-hidden">
+                            <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${(player.mp! / player.maxMp!) * 100}%` }}></div>
+                             <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md">
+                                {player.mp}/{player.maxMp} MP
+                            </div>
+                        </div>
+                    )}
+                    {player.class === CharacterClass.ROGUE && (
+                         <div className="w-full bg-black/50 rounded-full h-3 md:h-4 border border-gray-600 relative overflow-hidden">
+                            <div className="bg-green-500 h-full transition-all duration-500" style={{ width: `${(player.ep! / player.maxEp!) * 100}%` }}></div>
+                             <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md">
+                                {player.ep}/{player.maxEp} EP
+                            </div>
+                        </div>
+                    )}
+                     {player.class === CharacterClass.WARRIOR && (
+                         <div className="w-full bg-black/50 rounded-full h-3 md:h-4 border border-gray-600 relative overflow-hidden">
+                            <div className="bg-amber-600 h-full transition-all duration-500" style={{ width: `${(player.sp! / player.maxSp!) * 100}%` }}></div>
+                             <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md">
+                                {player.sp}/{player.maxSp} SP
+                            </div>
+                        </div>
+                    )}
+                     <div className="w-full bg-black/50 rounded-full h-3 md:h-4 border border-gray-600 relative overflow-hidden">
+                        <div className="bg-yellow-500 h-full transition-all duration-500" style={{ width: `${(player.xp / player.xpToNextLevel) * 100}%` }}></div>
+                         <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md">
+                            {player.xp}/{player.xpToNextLevel} XP
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+});
 
 const App: React.FC = () => {
     const [state, dispatch] = useReducer(reducer, initialState);
@@ -785,82 +860,6 @@ const App: React.FC = () => {
 
     const isScreenState = gameState === GameState.START_SCREEN || gameState === GameState.LOADING || gameState === GameState.GAME_OVER || gameState === GameState.CHARACTER_CREATION;
 
-    const getPortraitSrc = (b64: string) => {
-        if (!b64) return '';
-        if (b64.startsWith('PHN2Zy')) {
-             return `data:image/svg+xml;base64,${b64}`;
-        }
-        return `data:image/png;base64,${b64}`;
-    };
-
-    const PlayerStatusCard = React.memo(() => (
-        <div className="bg-gray-800/90 p-2 md:p-3 rounded-lg border-2 border-blue-500 shadow-lg flex flex-row gap-4 items-center w-full max-w-6xl mx-auto">
-            {player.portrait && (
-                <div className="w-16 h-16 md:w-20 md:h-20 bg-black rounded-md border-2 border-gray-600 shrink-0 overflow-hidden">
-                    <img src={getPortraitSrc(player.portrait)} alt="Player" className="w-full h-full object-cover rounded-sm image-rendering-pixelated" />
-                </div>
-            )}
-            <div className="flex flex-col flex-grow justify-between min-w-0 h-full">
-                <div>
-                    <div className="flex justify-between items-center mb-1">
-                        <div className="flex items-center gap-2 overflow-hidden">
-                            <h2 className="text-base md:text-xl font-press-start text-blue-300 truncate">{player.name}</h2>
-                            <div className="flex items-center gap-1">
-                                {player.statusEffects.map((effect, i) => (
-                                    <div key={i} title={effect.type} className="animate-pulse">{statusEffectIcons[effect.type]}</div>
-                                ))}
-                            </div>
-                        </div>
-                        <span className="text-xs md:text-sm text-gray-400 shrink-0 ml-2">Lvl {player.level} {player.class}</span>
-                    </div>
-                    <div className="flex justify-between text-xs md:text-sm mb-1 text-gray-300 font-mono">
-                        <span>ATK: <span className="text-red-300">{player.attack}</span></span>
-                        <span>DEF: <span className="text-blue-300">{player.defense}</span></span>
-                    </div>
-                </div>
-
-                <div className="flex flex-col gap-1 w-full mt-1">
-                    <div className="w-full bg-black/50 rounded-full h-3 md:h-4 border border-gray-600 relative overflow-hidden">
-                        <div className="bg-red-500 h-full transition-all duration-500" style={{ width: `${(player.hp / player.maxHp) * 100}%` }}></div>
-                        <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md">
-                            {player.hp}/{player.maxHp} HP
-                        </div>
-                    </div>
-                    {player.class === CharacterClass.MAGE && (
-                         <div className="w-full bg-black/50 rounded-full h-3 md:h-4 border border-gray-600 relative overflow-hidden">
-                            <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${(player.mp! / player.maxMp!) * 100}%` }}></div>
-                             <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md">
-                                {player.mp}/{player.maxMp} MP
-                            </div>
-                        </div>
-                    )}
-                    {player.class === CharacterClass.ROGUE && (
-                         <div className="w-full bg-black/50 rounded-full h-3 md:h-4 border border-gray-600 relative overflow-hidden">
-                            <div className="bg-green-500 h-full transition-all duration-500" style={{ width: `${(player.ep! / player.maxEp!) * 100}%` }}></div>
-                             <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md">
-                                {player.ep}/{player.maxEp} EP
-                            </div>
-                        </div>
-                    )}
-                     {player.class === CharacterClass.WARRIOR && (
-                         <div className="w-full bg-black/50 rounded-full h-3 md:h-4 border border-gray-600 relative overflow-hidden">
-                            <div className="bg-amber-600 h-full transition-all duration-500" style={{ width: `${(player.sp! / player.maxSp!) * 100}%` }}></div>
-                             <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md">
-                                {player.sp}/{player.maxSp} SP
-                            </div>
-                        </div>
-                    )}
-                     <div className="w-full bg-black/50 rounded-full h-3 md:h-4 border border-gray-600 relative overflow-hidden">
-                        <div className="bg-yellow-500 h-full transition-all duration-500" style={{ width: `${(player.xp / player.xpToNextLevel) * 100}%` }}></div>
-                         <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md">
-                            {player.xp}/{player.xpToNextLevel} XP
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    ));
-
     const ActionButtons = React.memo(() => (
         <div className="flex items-center gap-2 w-full max-w-4xl mx-auto overflow-x-auto whitespace-nowrap pb-1 no-scrollbar">
             {(gameState === GameState.EXPLORING || gameState === GameState.COMBAT) && (
@@ -950,7 +949,7 @@ const App: React.FC = () => {
             {/* Top Status Bar (All Screens) */}
             {!isScreenState && (
                 <div className="p-2 bg-gray-900 border-b border-gray-700 z-10 shrink-0">
-                    <PlayerStatusCard />
+                    <PlayerStatusCard player={player} />
                 </div>
             )}
 

@@ -1,5 +1,7 @@
+
 import React from 'react';
 import { WorldData } from '../../types';
+import { useAsset } from '../../hooks/useAsset';
 
 interface WorldMapViewProps {
   isOpen: boolean;
@@ -9,6 +11,8 @@ interface WorldMapViewProps {
 }
 
 export const WorldMapView: React.FC<WorldMapViewProps> = ({ isOpen, onClose, worldData, playerLocationId }) => {
+  const { assetUrl, isLoading } = useAsset(worldData?.image);
+
   if (!isOpen) {
     return null;
   }
@@ -34,14 +38,19 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ isOpen, onClose, wor
         </div>
 
         <div className="p-6 overflow-auto flex-grow flex justify-center items-start">
-          {worldData?.image ? (
+          {isLoading ? (
+            <div className="text-center text-gray-400 text-xl py-8">
+              <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-green-400 mx-auto mb-4"></div>
+              <p>Unrolling the scroll...</p>
+            </div>
+          ) : assetUrl ? (
             <div className="relative inline-block max-w-full max-h-full">
               <img 
-                src={`data:image/png;base64,${worldData.image}`} 
+                src={assetUrl}
                 alt="World Map" 
                 className="block max-w-full max-h-full rounded-md border-2 border-gray-600"
               />
-              {worldData.locations.map(location => {
+              {worldData?.locations.map(location => {
                     const isPlayerLocation = location.id === playerLocationId;
                     return (
                         <div
@@ -67,7 +76,6 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ isOpen, onClose, wor
             </div>
           ) : (
             <div className="text-center text-gray-400 text-xl py-8">
-              <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-green-400 mx-auto mb-4"></div>
               <p>Map not available...</p>
             </div>
           )}

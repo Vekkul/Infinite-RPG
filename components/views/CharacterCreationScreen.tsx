@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { CharacterClass } from '../../types';
 import { generateCharacterPortrait } from '../../services/geminiService';
+import { useAsset } from '../../hooks/useAsset';
 
 interface CharacterCreationScreenProps {
   onCreate: (details: { name: string; class: CharacterClass; portrait: string }) => void;
@@ -17,17 +18,12 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
     const [name, setName] = useState('');
     const [selectedClass, setSelectedClass] = useState<CharacterClass>(CharacterClass.WARRIOR);
     const [description, setDescription] = useState('');
-    const [portrait, setPortrait] = useState('');
+    const [portraitId, setPortraitId] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
     const [fallbackUsed, setFallbackUsed] = useState(false);
 
-    const getPortraitSrc = (b64: string) => {
-        if (!b64) return '';
-        if (b64.startsWith('PHN2Zy')) {
-             return `data:image/svg+xml;base64,${b64}`;
-        }
-        return `data:image/png;base64,${b64}`;
-    };
+    // Use hook to resolve the ID to a URL
+    const { assetUrl } = useAsset(portraitId);
 
     const handleGeneratePortrait = async () => {
         if (!description.trim()) {
@@ -35,13 +31,13 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
             return;
         }
         setIsGenerating(true);
-        setPortrait('');
+        setPortraitId('');
         setFallbackUsed(false);
         
-        const { portrait: generatedImage, isFallback } = await generateCharacterPortrait(description, selectedClass);
+        const { portrait: generatedId, isFallback } = await generateCharacterPortrait(description, selectedClass);
         
-        if (generatedImage) {
-            setPortrait(generatedImage);
+        if (generatedId) {
+            setPortraitId(generatedId);
             if (isFallback) {
                 setFallbackUsed(true);
             }
@@ -57,11 +53,11 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
             alert("Please enter a name for your character.");
             return;
         }
-        if (!portrait) {
+        if (!portraitId) {
             alert("Please generate a portrait for your character.");
             return;
         }
-        onCreate({ name, class: selectedClass, portrait });
+        onCreate({ name, class: selectedClass, portrait: portraitId });
     };
 
     return (
@@ -120,9 +116,9 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
                                <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-yellow-400 mx-auto"></div>
                                <p className="mt-2 text-sm">Generating...</p>
                            </div>
-                        ) : portrait ? (
+                        ) : assetUrl ? (
                             <>
-                                <img src={getPortraitSrc(portrait)} alt="Character Portrait" className="w-full h-full object-cover rounded-sm image-rendering-pixelated" />
+                                <img src={assetUrl} alt="Character Portrait" className="w-full h-full object-cover rounded-sm image-rendering-pixelated" />
                                 {fallbackUsed && (
                                     <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-yellow-200 text-xs text-center p-1">
                                         Magical interference. Using sketch.
@@ -148,7 +144,7 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
             <div className="mt-8 w-full max-w-sm pb-8">
                 <button
                     onClick={handleCreate}
-                    disabled={!name.trim() || !portrait || isGenerating}
+                    disabled={!name.trim() || !portraitId || isGenerating}
                     className="w-full font-press-start text-2xl bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-4 px-8 rounded-lg border-4 border-green-800 hover:green-700 transition-all transform hover:scale-105"
                 >
                     Start Adventure

@@ -1,6 +1,7 @@
 
 import { GoogleGenAI, Type, Modality, GenerateContentResponse } from "@google/genai";
 import { Player, GameAction, Item, ItemType, EnemyAbility, CharacterClass, SocialEncounter, RewardType, AIPersonality, MapLocation, WorldData, Element, Enemy, SocialChoice, EquipmentSlot, Quest, QuestUpdate } from '../types';
+import { assetService } from './assetService';
 
 // Helper to get a fresh instance of the API client
 // Optimized: Singleton instance to avoid overhead, assuming API_KEY doesn't change
@@ -468,7 +469,9 @@ export const generateCharacterPortrait = async (description: string, characterCl
         if (parts) {
             for (const part of parts) {
                 if (part.inlineData) {
-                    return { portrait: part.inlineData.data };
+                    // Optimization: Save binary to AssetService and return UUID
+                    const assetId = await assetService.saveBase64Asset(part.inlineData.data, part.inlineData.mimeType);
+                    return { portrait: assetId };
                 }
             }
         }
@@ -494,23 +497,22 @@ export const generateWorldData = async (): Promise<WorldData | null> => {
             },
         }), 1);
 
-        let image = "";
+        let imageBase64 = "";
         let imageMimeType = "";
         const imageParts = imageResponse.candidates?.[0]?.content?.parts;
         if (imageParts) {
             for (const part of imageParts) {
                 if (part.inlineData) {
-                    image = part.inlineData.data;
+                    imageBase64 = part.inlineData.data;
                     imageMimeType = part.inlineData.mimeType;
                     break;
                 }
             }
         }
 
-        if (!image || !imageMimeType) throw new Error("No image data found in response for world map.");
+        if (!imageBase64 || !imageMimeType) throw new Error("No image data found in response for world map.");
 
         // Step 2: Analyze the generated image to create coherent world data.
-        // Using gemini-3-flash-preview for its superior multimodal capabilities to map locations accurately
         const worldDataResponse = await callWithRetry<GenerateContentResponse>(() => getAi().models.generateContent({
             model: TEXT_MODEL,
             contents: {
@@ -518,7 +520,7 @@ export const generateWorldData = async (): Promise<WorldData | null> => {
                     {
                         inlineData: {
                             mimeType: imageMimeType,
-                            data: image,
+                            data: imageBase64,
                         },
                     },
                     {
@@ -550,8 +552,11 @@ export const generateWorldData = async (): Promise<WorldData | null> => {
         
         const locationsWithExplored = locations.map((loc: Omit<MapLocation, 'isExplored'>) => ({...loc, isExplored: false}));
         
+        // Optimization: Save the heavy map image to AssetStore
+        const assetId = await assetService.saveBase64Asset(imageBase64, imageMimeType);
+
         return {
-            image,
+            image: assetId,
             locations: locationsWithExplored,
             connections: connections,
             startLocationId: startId,
