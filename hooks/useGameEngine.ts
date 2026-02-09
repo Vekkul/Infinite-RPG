@@ -1,4 +1,5 @@
 
+
 import { useReducer, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { GameState, Item, ItemType, SaveData, EnemyAbility, SocialChoice, AIPersonality, PlayerAbility, Element, StatusEffectType, StatusEffect, GameAction, Enemy, SocialEncounter, EquipmentSlot, EventPopup, Recipe, Attributes } from '../types';
 import { generateScene, generateEncounter, generateWorldData, generateExploreResult, generateImproviseResult } from '../services/geminiService';
@@ -24,11 +25,16 @@ export const useGameEngine = () => {
     const prevPlayerLocationId = useRef<string | null>(null);
     const combatActiveRef = useRef(false);
     const operationIdRef = useRef(0);
+    // OPTIMIZATION: Track if combat is local (no movement). If so, we restore the scene instead of regenerating.
+    const isLocalCombatRef = useRef(false);
+    // Keep a ref to state for access in effects/callbacks without triggering re-runs
+    const stateRef = useRef(state);
 
     // Sync Refs
     useEffect(() => {
         combatActiveRef.current = gameState === GameState.COMBAT;
-    }, [gameState]);
+        stateRef.current = state;
+    }, [gameState, state]);
 
     // Check Save on Mount
     useEffect(() => {
@@ -75,6 +81,7 @@ export const useGameEngine = () => {
     // --- Core Game Actions ---
 
     const startNewGame = useCallback(() => {
+        isLocalCombatRef.current = false;
         dispatch({ type: 'START_NEW_GAME' });
     }, []);
 
@@ -201,6 +208,10 @@ export const useGameEngine = () => {
                 dispatch({ type: 'SET_GAME_STATE', payload: GameState.EXPLORING });
             }
         } else if (result.nextSceneType === 'COMBAT') {
+            // Optimization: Local encounter, save scene state
+            isLocalCombatRef.current = true;
+            dispatch({ type: 'SAVE_SCENE_STATE' });
+
             const { enemies: newEnemies, isFallback } = await generateEncounter(player);
             if (opId !== operationIdRef.current) return;
 
@@ -225,6 +236,10 @@ export const useGameEngine = () => {
         appendToLog(`You decide to ${action.label.toLowerCase()}...`);
     
         if (action.type === 'encounter') {
+            // Optimization: Local encounter, save scene state
+            isLocalCombatRef.current = true;
+            dispatch({ type: 'SAVE_SCENE_STATE' });
+
             const { enemies: newEnemies, isFallback } = await generateEncounter(player);
             if (opId !== operationIdRef.current) return;
 
@@ -273,6 +288,10 @@ export const useGameEngine = () => {
                 }
     
             } else if (result.nextSceneType === 'COMBAT') {
+                // Optimization: Local encounter, save scene state
+                isLocalCombatRef.current = true;
+                dispatch({ type: 'SAVE_SCENE_STATE' });
+
                 const { enemies: newEnemies, isFallback } = await generateEncounter(player);
                 if (opId !== operationIdRef.current) return;
 
@@ -308,6 +327,9 @@ export const useGameEngine = () => {
                     appendToLog(`You travel to ${newLocation.name}...`);
                     
                     if (Math.random() < TRAVEL_ENCOUNTER_CHANCE) {
+                        // Optimization: Movement encounter. Do NOT save scene state as we want to generate new scene on win.
+                        isLocalCombatRef.current = false;
+
                         const { enemies: newEnemies, isFallback } = await generateEncounter(player);
                         if (opId !== operationIdRef.current) return;
 
@@ -437,8 +459,14 @@ export const useGameEngine = () => {
         } else if (action === 'flee') {
             if (Math.random() < FLEE_CHANCE) {
                 appendToLog('You successfully escaped!');
-                await loadSceneForCurrentLocation();
-                dispatch({ type: 'SET_ENEMIES', payload: [] });
+                // OPTIMIZATION: Check if we can restore local scene instead of calling API
+                if (isLocalCombatRef.current && stateRef.current.preCombatState) {
+                    dispatch({ type: 'RESTORE_SCENE_STATE', payload: { appendText: 'You managed to run away.' } });
+                    dispatch({ type: 'SET_ENEMIES', payload: [] });
+                } else {
+                    await loadSceneForCurrentLocation();
+                    dispatch({ type: 'SET_ENEMIES', payload: [] });
+                }
                 return;
             } else {
                 dispatch({ type: 'PLAYER_ACTION_FLEE_FAILURE' });
@@ -524,9 +552,16 @@ export const useGameEngine = () => {
                 type: 'PROCESS_COMBAT_VICTORY', 
                 payload: { xpGained: totalXpGained, loot: lootItems, regen }
             });
-    
-            await loadSceneForCurrentLocation();
-            dispatch({ type: 'SET_ENEMIES', payload: [] });
+            
+            // OPTIMIZATION: Check if we can restore local scene instead of calling API
+            // Use stateRef to access the latest state without adding it to the dependency array
+            if (isLocalCombatRef.current && stateRef.current.preCombatState) {
+                dispatch({ type: 'RESTORE_SCENE_STATE', payload: { appendText: 'The enemies lie defeated.' } });
+                dispatch({ type: 'SET_ENEMIES', payload: [] });
+            } else {
+                await loadSceneForCurrentLocation();
+                dispatch({ type: 'SET_ENEMIES', payload: [] });
+            }
         };
 
         const allEnemiesDefeated = enemies.every(e => e.hp <= 0);

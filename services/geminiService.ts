@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI, Type, Modality, GenerateContentResponse } from "@google/genai";
 import { Player, GameAction, Item, ItemType, EnemyAbility, SocialEncounter, RewardType, AIPersonality, MapLocation, WorldData, Element, Enemy, SocialChoice, EquipmentSlot, Quest, QuestUpdate } from '../types';
 import { assetService } from './assetService';
@@ -11,7 +12,7 @@ const TEXT_MODEL = 'gemini-3-flash-preview';
 const IMAGE_MODEL = 'gemini-2.5-flash-image';
 const TTS_MODEL = 'gemini-2.5-flash-preview-tts';
 
-const SYSTEM_INSTRUCTION = "You are a creative and engaging dungeon master for a classic fantasy JRPG. Your descriptions are vivid, your monsters are menacing, and your scenarios are intriguing. Keep the tone epic and adventurous, with a slightly retro feel. Responses must adhere to the provided JSON schema.";
+const SYSTEM_INSTRUCTION = "You are a fantasy JRPG dungeon master. Be creative, engaging, and concise. Responses must strictly adhere to the provided JSON schema.";
 
 // --- Schemas (Kept as is for brevity, assume they exist) ---
 const questSchema = {
@@ -37,13 +38,13 @@ const questUpdateSchema = {
 const itemSchema = {
     type: Type.OBJECT,
     properties: {
-        name: { type: Type.STRING, description: "The name of the item, e.g., 'Minor Healing Potion', 'Rusty Iron Sword', 'Iron Ore', 'Wolf Pelt'." },
-        description: { type: Type.STRING, description: "A brief, flavorful description of the item." },
-        type: { type: Type.STRING, enum: [ItemType.POTION, ItemType.WEAPON, ItemType.ARMOR, ItemType.KEY_ITEM, ItemType.MATERIAL], description: "The item type. Use MATERIAL for crafting ingredients (ores, herbs, skins)." },
-        value: { type: Type.INTEGER, description: "For POTION: HP restored. WEAPON/ARMOR: Stat bonus. KEY_ITEM/MATERIAL: 0 or generic value." },
-        stackLimit: { type: Type.INTEGER, description: "Max stack size. Potions/Materials: 10. Equipment: 1. Key Items: 1."},
-        slot: { type: Type.STRING, enum: [EquipmentSlot.MAIN_HAND, EquipmentSlot.BODY], description: "Only for WEAPON/ARMOR. Null for others."},
-        traits: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Optional narrative tags, e.g., ['cursed', 'glows', 'rusty']."}
+        name: { type: Type.STRING, description: "The name of the item." },
+        description: { type: Type.STRING, description: "A brief, flavorful description." },
+        type: { type: Type.STRING, enum: [ItemType.POTION, ItemType.WEAPON, ItemType.ARMOR, ItemType.KEY_ITEM, ItemType.MATERIAL], description: "Item type." },
+        value: { type: Type.INTEGER, description: "Value/Potency." },
+        stackLimit: { type: Type.INTEGER, description: "Max stack."},
+        slot: { type: Type.STRING, enum: [EquipmentSlot.MAIN_HAND, EquipmentSlot.BODY], description: "Equip slot (optional)."},
+        traits: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Tags."}
     },
     required: ["name", "description", "type", "value", "stackLimit"]
 };
@@ -53,23 +54,23 @@ const sceneSchema = {
     properties: {
         description: {
             type: Type.STRING,
-            description: "A vivid, fantasy JRPG-style description of the current location, reflecting the provided context. Max 80 words. Be creative and evocative.",
+            description: "A vivid JRPG description of the location. Max 60 words.",
         },
         localActions: {
             type: Type.ARRAY,
-            description: "An array of 1 or 2 possible actions unique to this location, besides moving. e.g., 'Search the abandoned shack', 'Listen to the wind'. Label should be short. Type should be 'explore' or 'encounter'.",
+            description: "1 or 2 unique local actions (not movement).",
             items: {
                 type: Type.OBJECT,
                 properties: {
-                    label: { type: Type.STRING, description: "The text on the action button." },
-                    type: { type: Type.STRING, description: "The type of action. Must be 'explore' or 'encounter'." },
+                    label: { type: Type.STRING, description: "Button text." },
+                    type: { type: Type.STRING, description: "'explore' or 'encounter'." },
                 },
                 required: ["label", "type"],
             },
         },
         foundItem: {
             ...itemSchema,
-            description: "An item the player finds upon arriving in this scene. Optional, only include it about 25% of the time. Use MATERIAL type occasionally."
+            description: "Optional item found (approx 25% chance)."
         }
     },
     required: ["description", "localActions"],
@@ -78,20 +79,20 @@ const sceneSchema = {
 const socialChoiceSchema = {
     type: Type.OBJECT,
     properties: {
-        label: { type: Type.STRING, description: "A short label for the choice button (e.g., 'Help the merchant', 'Ignore him'). Max 5 words." },
-        outcome: { type: Type.STRING, description: "The resulting story text if this choice is made. Max 60 words." },
-        flagUpdate: { type: Type.STRING, description: "Optional: A narrative flag to add to the player's journal if this choice is taken (e.g., 'helped_merchant', 'stole_apple')." },
+        label: { type: Type.STRING, description: "Choice button label." },
+        outcome: { type: Type.STRING, description: "Story outcome text. Max 50 words." },
+        flagUpdate: { type: Type.STRING, description: "Optional narrative flag." },
         reward: {
             type: Type.OBJECT,
             properties: {
-                type: { type: Type.STRING, description: `The type of reward. Must be one of: '${RewardType.XP}', '${RewardType.ITEM}', '${RewardType.QUEST}'.` },
-                value: { type: Type.INTEGER, description: "For XP, the amount gained. Between 25 and 75." },
-                item: { ...itemSchema, description: "For an ITEM reward, describe the item." },
-                quest: { ...questSchema, description: "For a QUEST reward, describe the new quest." }
+                type: { type: Type.STRING, description: `Reward type: '${RewardType.XP}', '${RewardType.ITEM}', '${RewardType.QUEST}'.` },
+                value: { type: Type.INTEGER, description: "XP amount." },
+                item: { ...itemSchema, description: "Item details." },
+                quest: { ...questSchema, description: "Quest details." }
             },
             required: ["type"]
         },
-        questUpdate: { ...questUpdateSchema, description: "Optional: Update an existing active quest status if this choice completes it." }
+        questUpdate: { ...questUpdateSchema, description: "Optional quest update." }
     },
     required: ["label", "outcome"]
 };
@@ -101,27 +102,27 @@ const exploreResultSchema = {
     properties: {
         description: {
             type: Type.STRING,
-            description: "A vivid description of the result of the player's action, which also sets the stage for what comes next. This text is used for both the event log and the main screen. For an EXPLORATION result, it should describe the outcome and then restate the scene. For a SOCIAL or COMBAT result, it should provide the lead-in text for the encounter. Max 80 words."
+            description: "Result description setting up next scene. Max 60 words."
         },
         nextSceneType: {
             type: Type.STRING,
             enum: ['EXPLORATION', 'SOCIAL', 'COMBAT'],
-            description: "The type of scene that follows. MUST be one of the enum values, chosen logically based on the player's action."
+            description: "Next scene type."
         },
         localActions: {
             ...sceneSchema.properties.localActions,
-            description: "ONLY include if nextSceneType is 'EXPLORATION'."
+            description: "Include if nextSceneType is 'EXPLORATION'."
         },
         foundItem: {
             ...itemSchema,
-            description: "An optional item found. ONLY include if nextSceneType is 'EXPLORATION' and it makes narrative sense."
+            description: "Optional item found."
         },
         socialChoices: {
             type: Type.ARRAY,
-            description: "An array of 2 choices. ONLY include if nextSceneType is 'SOCIAL'.",
+            description: "Choices if nextSceneType is 'SOCIAL'.",
             items: socialChoiceSchema
         },
-        questUpdate: { ...questUpdateSchema, description: "Optional: If this action logically completes an ACTIVE quest from the context, update it here." }
+        questUpdate: { ...questUpdateSchema, description: "Optional quest update." }
     },
     required: ["description", "nextSceneType"]
 };
@@ -131,35 +132,35 @@ const enemySchema = {
     properties: {
         name: {
             type: Type.STRING,
-            description: "A creative and menacing fantasy monster name from a JRPG. e.g. 'Gloomfang', 'Crystal Golem', 'Shadow Sprite'."
+            description: "Monster name."
         },
         description: {
             type: Type.STRING,
-            description: "A short, intimidating description of the monster. Max 30 words."
+            description: "Short description. Max 20 words."
         },
         hp: {
             type: Type.INTEGER,
-            description: "The monster's health points. Should be a value between player's level * 15 and player's level * 25."
+            description: "Health points."
         },
         attack: {
             type: Type.INTEGER,
-            description: "The monster's attack power. Should be a value between player's level * 3 and player's level * 5."
+            description: "Attack power."
         },
         loot: {
             ...itemSchema,
-            description: "An item dropped by the monster upon defeat. Optional, include for about 40% of monsters."
+            description: "Optional drop."
         },
         ability: {
             type: Type.STRING,
-            description: `An optional special ability for the monster. Can be one of: '${EnemyAbility.HEAL}', '${EnemyAbility.SHIELD}', '${EnemyAbility.MULTI_ATTACK}', '${EnemyAbility.DRAIN_LIFE}'. Omit for most monsters.`
+            description: `Optional ability: '${EnemyAbility.HEAL}', '${EnemyAbility.SHIELD}', '${EnemyAbility.MULTI_ATTACK}', '${EnemyAbility.DRAIN_LIFE}'.`
         },
         aiPersonality: {
             type: Type.STRING,
-            description: `The monster's combat AI. Determines its behavior. Can be one of: '${AIPersonality.AGGRESSIVE}' (attacks often), '${AIPersonality.DEFENSIVE}' (heals/shields when low HP), '${AIPersonality.STRATEGIC}' (balances attack and defense), or '${AIPersonality.WILD}' (unpredictable). Assign strategically based on the monster's concept and abilities.`
+            description: `AI: '${AIPersonality.AGGRESSIVE}', '${AIPersonality.DEFENSIVE}', '${AIPersonality.STRATEGIC}', '${AIPersonality.WILD}'.`
         },
         element: {
             type: Type.STRING,
-            description: `An optional elemental affinity for the monster. Can be one of: '${Element.FIRE}', '${Element.ICE}', '${Element.LIGHTNING}', '${Element.EARTH}'. Omit for non-elemental monsters.`
+            description: `Element: '${Element.FIRE}', '${Element.ICE}', '${Element.LIGHTNING}', '${Element.EARTH}'.`
         }
     },
     required: ["name", "description", "hp", "attack"]
@@ -167,18 +168,18 @@ const enemySchema = {
 
 const encounterSchema = {
     type: Type.ARRAY,
-    description: "An array of 1 to 3 enemy monsters for the player to fight.",
+    description: "Array of 1-3 enemies.",
     items: enemySchema,
 };
 
 const mapLocationSchema = {
     type: Type.OBJECT,
     properties: {
-        id: { type: Type.STRING, description: "A unique, one-word ID for the location (e.g., 'forest', 'castle')." },
-        name: { type: Type.STRING, description: "A creative, fantasy name for the location (e.g., 'Glimmerwood Forest', 'Castle Valoria')." },
-        description: { type: Type.STRING, description: "A brief, evocative description of the location. Max 30 words." },
-        x: { type: Type.INTEGER, description: "The horizontal position on the map, from 5 to 95." },
-        y: { type: Type.INTEGER, description: "The vertical position on the map, from 5 to 95." },
+        id: { type: Type.STRING, description: "Unique ID." },
+        name: { type: Type.STRING, description: "Location name." },
+        description: { type: Type.STRING, description: "Brief description. Max 25 words." },
+        x: { type: Type.INTEGER, description: "X pos (5-95)." },
+        y: { type: Type.INTEGER, description: "Y pos (5-95)." },
     },
     required: ["id", "name", "description", "x", "y"]
 };
@@ -186,8 +187,8 @@ const mapLocationSchema = {
 const connectionSchema = {
     type: Type.OBJECT,
     properties: {
-        from: { type: Type.STRING, description: "The ID of the starting location." },
-        to: { type: Type.STRING, description: "The ID of the destination location." },
+        from: { type: Type.STRING, description: "Start ID." },
+        to: { type: Type.STRING, description: "End ID." },
     },
     required: ["from", "to"]
 };
@@ -197,17 +198,17 @@ const worldDataSchema = {
     properties: {
         locations: {
             type: Type.ARRAY,
-            description: "An array of 6 to 8 unique map locations.",
+            description: "6-8 unique locations.",
             items: mapLocationSchema
         },
         connections: {
             type: Type.ARRAY,
-            description: "An array of connections between location IDs, ensuring all locations form a single connected graph.",
+            description: "Graph connections.",
             items: connectionSchema
         },
         startLocationId: {
             type: Type.STRING,
-            description: "The ID of the location where the player should start."
+            description: "Start ID."
         }
     },
     required: ["locations", "connections", "startLocationId"]
@@ -253,11 +254,12 @@ const callWithRetry = async <T>(
 
 // --- Helper for Prompt Construction ---
 const getContextString = (player: Player) => {
-    let context = `Player Context: Level ${player.level} ${player.className}.`;
+    let context = `Context: Level ${player.level} ${player.className}.`;
     if (player.journal.quests.length > 0) {
+        // Only show active quests to save tokens
         const activeQuests = player.journal.quests
             .filter(q => q.status === 'ACTIVE')
-            .map(q => `${q.title} (ID: ${q.id}: ${q.description})`)
+            .map(q => `${q.title} (${q.id})`)
             .join(', ');
         
         if (activeQuests) {
@@ -265,7 +267,9 @@ const getContextString = (player: Player) => {
         }
     }
     if (player.journal.flags.length > 0) {
-        context += ` Narrative Flags (Events that happened): ${player.journal.flags.join(', ')}.`;
+        // Optimization: Limit to last 8 flags to keep context small but relevant
+        const recentFlags = player.journal.flags.slice(-8);
+        context += ` Recent Events: ${recentFlags.join(', ')}.`;
     }
     return context;
 };
@@ -275,7 +279,7 @@ export const generateExploreResult = async (player: Player, action: GameAction):
         const context = getContextString(player);
         const response = await callWithRetry<GenerateContentResponse>(() => getAi().models.generateContent({
             model: TEXT_MODEL,
-            contents: `Context: ${context}. The player decided to: "${action.label}". Generate a logically consistent result that respects the narrative flags. The 'description' must vividly narrate the outcome and set up the next scene. For EXPLORATION, describe the action's result and the current scene. If the player's action and location logically conclude an ACTIVE quest (e.g., they found the item or person described in the quest ID/Description), strictly use 'questUpdate' to mark it COMPLETED. For SOCIAL/COMBAT, provide the lead-in text. E.g., for 'Search a chest', 'description' could be 'You open the chest and find a healing potion. The dusty room is otherwise empty.', with nextSceneType 'EXPLORATION'. Trigger COMBAT sparingly.`,
+            contents: `${context} Action: "${action.label}". Generate result. If EXPLORATION, describe scene. If SOCIAL/COMBAT, lead-in text. Update quests if applicable.`,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: "application/json",
@@ -298,7 +302,7 @@ export const generateExploreResult = async (player: Player, action: GameAction):
     } catch (error) {
         console.error("Explore Generation failed:", error);
         return {
-            description: "You cautiously proceed but find nothing of interest. The path ahead remains, waiting for your next move.",
+            description: "You cautiously proceed but find nothing of interest.",
             nextSceneType: 'EXPLORATION',
             localActions: [{ label: "Scan the surroundings", type: "explore" }],
             isFallback: true,
@@ -311,7 +315,7 @@ export const generateImproviseResult = async (player: Player, input: string): Pr
         const context = getContextString(player);
         const response = await callWithRetry<GenerateContentResponse>(() => getAi().models.generateContent({
             model: TEXT_MODEL,
-            contents: `Context: ${context}. The player attempts a free-form action: "${input}". Resolve this action logically within the fantasy setting. If it's a skill check, assume a fair roll based on their class/level. Describe the outcome vividly. If the action triggers combat or a social event, transition accordingly. If the action is physically impossible or nonsensical for the genre, describe the failure gracefully.`,
+            contents: `${context} Player Input: "${input}". Resolve action. If skill check, assume fair roll. Transition to combat/social if appropriate.`,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: "application/json",
@@ -334,7 +338,7 @@ export const generateImproviseResult = async (player: Player, input: string): Pr
     } catch (error) {
         console.error("Improvise Generation failed:", error);
         return {
-            description: "You hesitate, unsure if that is possible here. The moment passes.",
+            description: "You hesitate, unsure if that is possible here.",
             nextSceneType: 'EXPLORATION',
             localActions: [{ label: "Look around", type: "explore" }],
             isFallback: true,
@@ -347,7 +351,7 @@ export const generateScene = async (player: Player, location: MapLocation): Prom
         const context = getContextString(player);
         const response = await callWithRetry<GenerateContentResponse>(() => getAi().models.generateContent({
             model: TEXT_MODEL,
-            contents: `Context: ${context}. Generate a new scene for a JRPG player. The player has just arrived at ${location.name}: "${location.description}". Generate a vivid description that incorporates active quests or narrative flags if they seem relevant to this location. Generate 1-2 thematically appropriate local actions.`,
+            contents: `${context} Arrived at ${location.name}: "${location.description}". Describe scene. 1-2 local actions.`,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: "application/json",
@@ -366,7 +370,7 @@ export const generateScene = async (player: Player, location: MapLocation): Prom
     } catch (error) {
         console.error("Scene Generation failed:", error);
         return {
-            description: `You have arrived at ${location.name}. An ancient path winds before you, shrouded in an eerie silence. The air is thick with unspoken magic.`,
+            description: `You have arrived at ${location.name}.`,
             actions: [
                 { label: "Search the area", type: "explore" },
                 { label: "Listen for danger", type: "encounter" },
@@ -383,7 +387,7 @@ export const generateEncounter = async (player: Player): Promise<{ enemies: Enem
 
         const response = await callWithRetry<GenerateContentResponse>(() => getAi().models.generateContent({
             model: TEXT_MODEL,
-            contents: `Context: ${context}. Generate a fantasy JRPG monster encounter for a player who is level ${player.level}. Generate exactly ${numMonsters} monster(s). Some might have special abilities like healing or shielding. Monsters can also have an elemental affinity (Fire, Ice, Lightning, Earth). The encounter should be a suitable challenge.`,
+            contents: `${context} Generate encounter with ${numMonsters} monster(s). Appropriate challenge.`,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: "application/json",
@@ -406,7 +410,7 @@ export const generateEncounter = async (player: Player): Promise<{ enemies: Enem
         return {
             enemies: [{
                 name: "Slime",
-                description: "A basic, gelatinous creature. It jiggles menacingly.",
+                description: "A basic, gelatinous creature.",
                 hp: hp,
                 maxHp: hp,
                 attack: attack,
@@ -443,7 +447,7 @@ export const generateCharacterPortrait = async (description: string, className: 
             contents: {
                 parts: [
                     {
-                        text: `A 16-bit pixel art portrait of a JRPG character. Class: ${className}. Description: ${description}. Vibrant colors, fantasy style, head and shoulders view.`,
+                        text: `16-bit pixel art portrait, JRPG character. Class: ${className}. Description: ${description}. Head and shoulders.`,
                     },
                 ],
             },
@@ -475,7 +479,7 @@ export const generateWorldData = async (): Promise<WorldData | null> => {
             contents: {
                 parts: [
                     {
-                        text: `Generate a top-down, 16-bit pixel art style JRPG world map. The map should feature diverse biomes like lush forests, snowy mountains, villages, a large castle, and a coastline. IMPORTANT: The map image must be clean and contain absolutely no text, no labels, no icons, and no UI elements. It is a background image only.`,
+                        text: `Top-down 16-bit pixel art JRPG world map. Forests, mountains, castle, coast. NO TEXT, NO LABELS.`,
                     },
                 ],
             },
@@ -508,7 +512,7 @@ export const generateWorldData = async (): Promise<WorldData | null> => {
                         },
                     },
                     {
-                        text: `You are a fantasy cartographer. Analyze the provided JRPG world map image. Identify 6 to 8 distinct locations like villages, castles, forests, or mountains. Create a JSON object that follows the provided schema. One location MUST be a starting village named 'Oakhaven' (id: 'oakhaven') and set as the 'startLocationId'. For each location, provide its x and y coordinates (0-100) based on its visual position. Ensure all locations form a single connected graph via the connections array.`,
+                        text: `Analyze map. Create JSON. 6-8 locations (villages, forests, etc). Include 'Oakhaven' (id: 'oakhaven') as startLocationId. Ensure connected graph.`,
                     },
                 ],
             },
@@ -556,7 +560,7 @@ export const generateSpeech = async (text: string): Promise<{ audio: string; isF
     try {
         const response = await callWithRetry<GenerateContentResponse>(() => getAi().models.generateContent({
             model: TTS_MODEL,
-            contents: [{ parts: [{ text: `Say with the tone of an epic fantasy narrator: ${text}` }] }],
+            contents: [{ parts: [{ text: `Epic fantasy narrator: ${text}` }] }],
             config: {
                 responseModalities: [Modality.AUDIO],
                 speechConfig: {

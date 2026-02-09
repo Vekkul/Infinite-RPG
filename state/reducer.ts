@@ -1,4 +1,5 @@
 
+
 import { AppState, Action, GameState, Item, Player, Enemy, RewardType, MapLocation, PlayerAbility, StatusEffect, StatusEffectType, Element, ItemType, EquipmentSlot, Quest, Attributes } from '../types';
 import { initialState } from './initialState';
 import { PLAYER_ABILITIES, ELEMENTAL_RESISTANCES, STATUS_EFFECT_CONFIG } from '../constants';
@@ -267,18 +268,21 @@ export const reducer = (state: AppState, action: Action): AppState => {
         const target = newEnemies[targetIndex];
         let newPlayerState = {...state.player};
         
-        // Use resources
+        // 1. Consume Resources
         if (abilityDetails.resource === 'MP') newPlayerState.mp = (newPlayerState.mp || 0) - abilityDetails.cost;
         if (abilityDetails.resource === 'EP') newPlayerState.ep = (newPlayerState.ep || 0) - abilityDetails.cost;
         if (abilityDetails.resource === 'SP') newPlayerState.sp = (newPlayerState.sp || 0) - abilityDetails.cost;
         
+        // 2. Apply Healing (Self)
         if (abilityDetails.healAmount && abilityDetails.healAmount > 0) {
-            // Self Heal Ability
             const healVal = Math.floor(newPlayerState.attributes.intelligence * abilityDetails.healAmount);
             newPlayerState.hp = Math.min(newPlayerState.maxHp, newPlayerState.hp + healVal);
             newLog = appendToLog(newLog, `You cast ${abilityDetails.name} and heal for ${healVal} HP.`);
-        } else {
-            // Offensive Ability
+        } 
+        
+        // 3. Apply Damage (Target)
+        // Only if damageMultiplier > 0, to separate pure buffs from attacks
+        if (abilityDetails.damageMultiplier > 0) {
             let damage = Math.floor(state.player.attack * abilityDetails.damageMultiplier + (Math.random() * 5));
 
             if (target.element && ELEMENTAL_RESISTANCES[target.element] === abilityDetails.element) {
@@ -297,28 +301,32 @@ export const reducer = (state: AppState, action: Action): AppState => {
             
             if (newHp <= 0) {
                  newLog = appendToLog(newLog, `${target.name} is defeated!`);
-            } else if (abilityDetails.statusEffect && Math.random() < (abilityDetails.statusChance || 0)) {
-                if (abilityDetails.statusEffect === StatusEffectType.EARTH_ARMOR) {
-                    // Apply to self
-                    const { target: updatedPlayer, log: effectLog } = applyStatusEffect(newPlayerState, {
-                        type: StatusEffectType.EARTH_ARMOR,
-                        duration: STATUS_EFFECT_CONFIG.EARTH_ARMOR.duration,
-                    });
-                    newPlayerState = updatedPlayer as Player;
-                    newLog = appendToLog(newLog, effectLog);
-                } else {
-                    // Apply to enemy
-                     const effect: StatusEffect = {
-                        type: abilityDetails.statusEffect,
-                        duration: STATUS_EFFECT_CONFIG[abilityDetails.statusEffect].duration,
-                    };
-                    if (effect.type === StatusEffectType.BURN) {
-                        effect.sourceAttack = state.player.attack;
-                    }
-                    const { target: updatedTarget, log: effectLog } = applyStatusEffect(newEnemies[targetIndex], effect);
-                    newEnemies[targetIndex] = updatedTarget as Enemy;
-                    newLog = appendToLog(newLog, effectLog);
+            }
+        }
+
+        // 4. Apply Status Effects
+        if (abilityDetails.statusEffect && Math.random() < (abilityDetails.statusChance || 0)) {
+            // Self-Targeting Status Effects
+            if (abilityDetails.statusEffect === StatusEffectType.EARTH_ARMOR) {
+                const { target: updatedPlayer, log: effectLog } = applyStatusEffect(newPlayerState, {
+                    type: StatusEffectType.EARTH_ARMOR,
+                    duration: STATUS_EFFECT_CONFIG.EARTH_ARMOR.duration,
+                });
+                newPlayerState = updatedPlayer as Player;
+                newLog = appendToLog(newLog, effectLog);
+            } 
+            // Enemy-Targeting Status Effects (Only if target is alive)
+            else if (newEnemies[targetIndex].hp > 0) {
+                 const effect: StatusEffect = {
+                    type: abilityDetails.statusEffect,
+                    duration: STATUS_EFFECT_CONFIG[abilityDetails.statusEffect].duration,
+                };
+                if (effect.type === StatusEffectType.BURN) {
+                    effect.sourceAttack = state.player.attack;
                 }
+                const { target: updatedTarget, log: effectLog } = applyStatusEffect(newEnemies[targetIndex], effect);
+                newEnemies[targetIndex] = updatedTarget as Enemy;
+                newLog = appendToLog(newLog, effectLog);
             }
         }
 
@@ -667,6 +675,31 @@ export const reducer = (state: AppState, action: Action): AppState => {
          }
          return state;
     }
+
+    case 'SAVE_SCENE_STATE':
+        return {
+            ...state,
+            preCombatState: {
+                description: state.storyText,
+                actions: state.actions
+            }
+        };
+
+    case 'RESTORE_SCENE_STATE':
+        if (state.preCombatState) {
+            let desc = state.preCombatState.description;
+            if (action.payload?.appendText) {
+                desc += ` ${action.payload.appendText}`;
+            }
+            return {
+                ...state,
+                storyText: desc,
+                actions: state.preCombatState.actions,
+                preCombatState: null,
+                gameState: GameState.EXPLORING // Ensure we return to exploring
+            };
+        }
+        return state;
 
     default:
       return state;

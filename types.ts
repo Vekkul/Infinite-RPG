@@ -1,4 +1,5 @@
 
+
 export enum GameState {
   LOADING = 'LOADING',
   START_SCREEN = 'START_SCREEN',
@@ -260,6 +261,7 @@ export interface AppState {
   socialEncounter: SocialEncounter | null;
   worldData: WorldData | null;
   playerLocationId: string | null;
+  preCombatState: { description: string; actions: GameAction[] } | null;
 }
 
 export type Action =
@@ -294,4 +296,6 @@ export type Action =
   | { type: 'APPLY_STATUS_EFFECT'; payload: { target: 'player' | 'enemy'; index?: number; effect: StatusEffect } }
   | { type: 'ADD_QUEST'; payload: Quest }
   | { type: 'UPDATE_QUEST_STATUS'; payload: { id: string; status: Quest['status'] } }
-  | { type: 'ADD_JOURNAL_FLAG'; payload: string };
+  | { type: 'ADD_JOURNAL_FLAG'; payload: string }
+  | { type: 'SAVE_SCENE_STATE' }
+  | { type: 'RESTORE_SCENE_STATE'; payload?: { appendText: string } };

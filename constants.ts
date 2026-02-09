@@ -52,68 +52,68 @@ export interface AbilityDetails {
 export const PLAYER_ABILITIES: Record<PlayerAbility, AbilityDetails> = {
     [PlayerAbility.EARTHEN_STRIKE]: {
         name: PlayerAbility.EARTHEN_STRIKE,
-        cost: 8,
+        cost: 12,
         resource: 'SP',
         description: 'A heavy blow using Stamina. Grants a temporary defense boost.',
         element: Element.EARTH,
-        damageMultiplier: 1.3,
-        statusEffect: StatusEffectType.EARTH_ARMOR, // Apply to self logic handled in reducer
+        damageMultiplier: 1.2,
+        statusEffect: StatusEffectType.EARTH_ARMOR, 
         statusChance: 1.0, 
     },
     [PlayerAbility.POWER_SLASH]: {
         name: PlayerAbility.POWER_SLASH,
-        cost: 12,
+        cost: 15,
         resource: 'SP',
         description: 'A devastating physical attack that can crush defenses.',
         element: Element.NONE,
-        damageMultiplier: 1.6,
+        damageMultiplier: 1.8,
     },
     [PlayerAbility.FIREBALL]: {
         name: PlayerAbility.FIREBALL,
-        cost: 10,
+        cost: 12,
         resource: 'MP',
         description: 'Hurls a ball of fire. Chance to Burn.',
         element: Element.FIRE,
         damageMultiplier: 1.5,
         statusEffect: StatusEffectType.BURN,
-        statusChance: 0.2,
+        statusChance: 0.3,
     },
     [PlayerAbility.ICE_SHARD]: {
         name: PlayerAbility.ICE_SHARD,
-        cost: 6,
+        cost: 8,
         resource: 'MP',
         description: 'Launches a shard of ice. Chance to Chill.',
         element: Element.ICE,
         damageMultiplier: 1.2,
         statusEffect: StatusEffectType.CHILL,
-        statusChance: 0.3,
+        statusChance: 0.4,
     },
     [PlayerAbility.ARCANE_BLAST]: {
         name: PlayerAbility.ARCANE_BLAST,
-        cost: 15,
+        cost: 20,
         resource: 'MP',
-        description: 'A blast of pure magical energy.',
+        description: 'A massive blast of pure magical energy.',
         element: Element.NONE,
-        damageMultiplier: 1.8,
+        damageMultiplier: 2.2,
     },
     [PlayerAbility.HEAL]: {
         name: PlayerAbility.HEAL,
-        cost: 12,
+        cost: 15,
         resource: 'MP',
         description: 'Restores health using magical energy.',
         element: Element.NONE,
         damageMultiplier: 0,
-        healAmount: 4, // 4x Int
+        healAmount: 3.5, // Reduced slightly to balance Int scaling
     },
     [PlayerAbility.LIGHTNING_STRIKE]: {
         name: PlayerAbility.LIGHTNING_STRIKE,
-        cost: 8,
+        cost: 10,
         resource: 'EP',
         description: 'A rapid strike using Energy. Chance to Shock.',
         element: Element.LIGHTNING,
-        damageMultiplier: 1.1,
+        damageMultiplier: 1.3,
         statusEffect: StatusEffectType.SHOCK,
-        statusChance: 0.2,
+        statusChance: 0.25,
     },
     [PlayerAbility.QUICK_STAB]: {
         name: PlayerAbility.QUICK_STAB,
@@ -121,7 +121,7 @@ export const PLAYER_ABILITIES: Record<PlayerAbility, AbilityDetails> = {
         resource: 'EP',
         description: 'A very fast, low cost attack.',
         element: Element.NONE,
-        damageMultiplier: 1.0, 
+        damageMultiplier: 1.1, 
     }
 };
 
@@ -142,7 +142,7 @@ export const ELEMENTAL_RESISTANCES: Record<Element, Element> = {
 export const STATUS_EFFECT_CONFIG = {
     [StatusEffectType.BURN]: { duration: 3, name: 'Burn' },
     [StatusEffectType.CHILL]: { duration: 3, damageReduction: 0.2, name: 'Chill' },
-    [StatusEffectType.SHOCK]: { duration: 3, stunChance: 0.1, name: 'Shock' },
+    [StatusEffectType.SHOCK]: { duration: 3, stunChance: 0.15, name: 'Shock' }, // Increased stun chance slightly
     [StatusEffectType.GROUNDED]: { duration: 3, defenseReduction: 0.2, name: 'Grounded' }, // Takes 20% more damage
     [StatusEffectType.EARTH_ARMOR]: { duration: 2, defenseBonus: 0.3, name: 'Earth Armor' }, // Takes 30% less damage
 };

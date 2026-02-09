@@ -1,4 +1,5 @@
 
+
 import { GameState, AppState } from '../types';
 import { INITIAL_PLAYER_STATS } from '../constants';
 
@@ -26,4 +27,5 @@ export const initialState: AppState = {
   socialEncounter: null,
   worldData: null,
   playerLocationId: null,
+  preCombatState: null,
 };

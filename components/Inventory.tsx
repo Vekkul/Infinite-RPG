@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { Item, ItemType, Player, EquipmentSlot, Recipe } from '../types';
 import { PotionIcon, SwordIcon, ShieldIcon } from './icons';
@@ -140,6 +141,25 @@ export const Inventory: React.FC<InventoryProps> = ({ isOpen, onClose, inventory
 
           {activeTab === 'equipment' && (
               <div className="space-y-6">
+                  {/* Attributes Section */}
+                  <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                      <h3 className="text-sm font-bold text-gray-400 uppercase mb-3 text-center border-b border-gray-700 pb-2">Attributes</h3>
+                      <div className="grid grid-cols-3 gap-4">
+                          <div className="text-center p-2 bg-gray-800 rounded border border-gray-700/50">
+                              <p className="text-xs text-orange-400 font-bold uppercase mb-1" title="Strength">STR</p>
+                              <p className="text-2xl font-mono text-white">{player.attributes.strength}</p>
+                          </div>
+                          <div className="text-center p-2 bg-gray-800 rounded border border-gray-700/50">
+                              <p className="text-xs text-blue-400 font-bold uppercase mb-1" title="Intelligence">INT</p>
+                              <p className="text-2xl font-mono text-white">{player.attributes.intelligence}</p>
+                          </div>
+                          <div className="text-center p-2 bg-gray-800 rounded border border-gray-700/50">
+                              <p className="text-xs text-green-400 font-bold uppercase mb-1" title="Agility">AGI</p>
+                              <p className="text-2xl font-mono text-white">{player.attributes.agility}</p>
+                          </div>
+                      </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4 bg-gray-900/50 p-4 rounded-lg border border-gray-700">
                       <div className="text-center">
                           <p className="text-gray-400 uppercase text-xs">Total Attack</p>
