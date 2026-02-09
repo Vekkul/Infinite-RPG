@@ -36,10 +36,10 @@ const PlayerStatusCard = React.memo(({ player }: { player: any }) => {
     const showStamina = player.maxSp > 15;
 
     return (
-        <div className="bg-gray-800/90 p-2 md:p-3 rounded-lg border-2 border-blue-500 shadow-lg flex flex-row gap-4 items-center w-full max-w-6xl mx-auto">
-            <div className="w-16 h-16 md:w-20 md:h-20 bg-black rounded-md border-2 border-gray-600 shrink-0 overflow-hidden relative">
+        <div className="bg-gray-800/90 p-2 md:p-3 rounded-lg border-2 border-blue-500 shadow-lg flex flex-row gap-4 items-stretch w-full max-w-6xl mx-auto">
+            <div className="w-24 md:w-32 bg-black rounded-md border-2 border-gray-600 shrink-0 overflow-hidden relative">
                 {assetUrl ? (
-                    <img src={assetUrl} alt="Player" className="w-full h-full object-cover rounded-sm image-rendering-pixelated" />
+                    <img src={assetUrl} alt="Player" className="absolute inset-0 w-full h-full object-cover rounded-sm image-rendering-pixelated" />
                 ) : (
                     <div className="w-full h-full bg-gray-800 animate-pulse"></div>
                 )}
@@ -300,4 +300,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-    
