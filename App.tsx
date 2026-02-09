@@ -48,32 +48,32 @@ const PlayerStatusCard = React.memo(({ player }: { player: any }) => {
                 <div>
                     <div className="flex justify-between items-center mb-1">
                         <div className="flex items-center gap-2 overflow-hidden">
-                            <h2 className="text-base md:text-xl font-press-start text-blue-300 truncate">{player.name}</h2>
+                            <h2 className="text-lg md:text-2xl font-cinzel font-bold text-amber-100 truncate drop-shadow-md">{player.name}</h2>
                             <div className="flex items-center gap-1">
                                 {player.statusEffects.map((effect: any, i: number) => (
                                     <div key={i} title={effect.type} className="animate-pulse">{statusEffectIcons[effect.type as StatusEffectType]}</div>
                                 ))}
                             </div>
                         </div>
-                        <span className="text-xs md:text-sm text-gray-400 shrink-0 ml-2">Lvl {player.level} {player.className}</span>
+                        <span className="text-xs md:text-sm text-gray-400 shrink-0 ml-2 font-bold tracking-wide">Lvl {player.level} {player.className}</span>
                     </div>
-                    <div className="flex justify-between text-xs md:text-sm mb-1 text-gray-300 font-mono">
-                        <span>ATK: <span className="text-red-300">{player.attack}</span></span>
-                        <span>DEF: <span className="text-blue-300">{player.defense}</span></span>
+                    <div className="flex justify-between text-xs md:text-sm mb-1 text-gray-300">
+                        <span className="font-cinzel text-amber-500/80 tracking-wide font-bold">ATK: <span className="text-red-300 text-base">{player.attack}</span></span>
+                        <span className="font-cinzel text-amber-500/80 tracking-wide font-bold">DEF: <span className="text-blue-300 text-base">{player.defense}</span></span>
                     </div>
                 </div>
 
                 <div className="flex flex-col gap-1 w-full mt-1">
                     <div className="w-full bg-black/50 rounded-full h-3 md:h-4 border border-gray-600 relative overflow-hidden">
                         <div className="bg-red-500 h-full transition-all duration-500" style={{ width: `${(player.hp / player.maxHp) * 100}%` }}></div>
-                        <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md">
+                        <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md tracking-wider">
                             {player.hp}/{player.maxHp} HP
                         </div>
                     </div>
                     {showMana && (
                          <div className="w-full bg-black/50 rounded-full h-3 md:h-4 border border-gray-600 relative overflow-hidden">
                             <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${(player.mp! / player.maxMp!) * 100}%` }}></div>
-                             <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md">
+                             <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md tracking-wider">
                                 {player.mp}/{player.maxMp} MP
                             </div>
                         </div>
@@ -81,7 +81,7 @@ const PlayerStatusCard = React.memo(({ player }: { player: any }) => {
                     {showEnergy && (
                          <div className="w-full bg-black/50 rounded-full h-3 md:h-4 border border-gray-600 relative overflow-hidden">
                             <div className="bg-green-500 h-full transition-all duration-500" style={{ width: `${(player.ep! / player.maxEp!) * 100}%` }}></div>
-                             <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md">
+                             <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md tracking-wider">
                                 {player.ep}/{player.maxEp} EP
                             </div>
                         </div>
@@ -89,14 +89,14 @@ const PlayerStatusCard = React.memo(({ player }: { player: any }) => {
                      {showStamina && (
                          <div className="w-full bg-black/50 rounded-full h-3 md:h-4 border border-gray-600 relative overflow-hidden">
                             <div className="bg-amber-600 h-full transition-all duration-500" style={{ width: `${(player.sp! / player.maxSp!) * 100}%` }}></div>
-                             <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md">
+                             <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md tracking-wider">
                                 {player.sp}/{player.maxSp} SP
                             </div>
                         </div>
                     )}
                      <div className="w-full bg-black/50 rounded-full h-3 md:h-4 border border-gray-600 relative overflow-hidden">
                         <div className="bg-yellow-500 h-full transition-all duration-500" style={{ width: `${(player.xp / player.xpToNextLevel) * 100}%` }}></div>
-                         <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md">
+                         <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md tracking-wider">
                             {player.xp}/{player.xpToNextLevel} XP
                         </div>
                     </div>
@@ -248,7 +248,7 @@ const App: React.FC = () => {
             {/* Level Up Overlay */}
             {showLevelUp && (
                 <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center pointer-events-none fixed">
-                    <h1 className="text-6xl md:text-8xl font-press-start text-yellow-300 animate-level-up" style={{textShadow: '4px 4px 0 #000'}}>
+                    <h1 className="text-6xl md:text-8xl font-cinzel font-bold text-yellow-300 animate-level-up" style={{textShadow: '4px 4px 0 #000'}}>
                         LEVEL UP!
                     </h1>
                 </div>
@@ -289,7 +289,7 @@ const App: React.FC = () => {
                  {!isScreenState && (
                     <div className="p-2 bg-gray-900 border-t border-gray-700 z-10 shrink-0 pb-[env(safe-area-inset-bottom)]">
                         {gameState === GameState.COMBAT && !isPlayerTurn && (
-                            <div className="text-center text-yellow-400 font-press-start animate-pulse mb-2 text-xs">Enemy Turn...</div>
+                            <div className="text-center text-yellow-400 font-cinzel font-bold animate-pulse mb-2 text-sm tracking-wider">Enemy Turn...</div>
                         )}
                         <ActionButtons />
                     </div>
@@ -300,3 +300,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+    

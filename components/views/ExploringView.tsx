@@ -27,7 +27,7 @@ export const ExploringView: React.FC<ExploringViewProps> = ({ storyText, actions
     <div className="flex flex-col h-full">
       {/* Scrollable Content Area */}
       <div className="flex-1 min-h-0 overflow-y-auto pr-2 pb-2">
-          <p className="animate-fade-in text-lg md:text-xl leading-relaxed">{displayedText}</p>
+          <p className="animate-fade-in text-lg md:text-xl leading-relaxed font-serif text-gray-200">{displayedText}</p>
       </div>
       
       {/* Fixed Bottom Actions */}
@@ -40,7 +40,7 @@ export const ExploringView: React.FC<ExploringViewProps> = ({ storyText, actions
             value={improviseInput}
             onChange={(e) => setImproviseInput(e.target.value)}
             placeholder="Try something else... (e.g. Check the waterfall)"
-            className="flex-1 bg-gray-800 text-white p-3 rounded-lg border border-gray-600 focus:outline-none focus:border-yellow-500 placeholder-gray-500"
+            className="flex-1 bg-gray-800 text-white p-3 rounded-lg border border-gray-600 focus:outline-none focus:border-yellow-500 placeholder-gray-500 font-serif"
             maxLength={60}
           />
           <button 
@@ -57,9 +57,9 @@ export const ExploringView: React.FC<ExploringViewProps> = ({ storyText, actions
             <button 
               key={index} 
               onClick={() => onAction(action)} 
-              className={`w-full text-base md:text-lg text-white font-bold py-3 md:py-4 px-4 rounded-lg border-2 shadow-lg active:transform active:scale-95 transition-all duration-200 ${
+              className={`w-full text-base md:text-lg text-white font-bold py-3 md:py-4 px-4 rounded-lg border-2 shadow-lg active:transform active:scale-95 transition-all duration-200 font-cinzel tracking-wide ${
                   action.type === 'move'
-                  ? 'bg-green-700 hover:bg-green-600 border-green-500'
+                  ? 'bg-green-800 hover:bg-green-700 border-green-600'
                   : 'bg-gray-700 hover:bg-gray-600 border-gray-500'
               }`}
             >
@@ -71,3 +71,4 @@ export const ExploringView: React.FC<ExploringViewProps> = ({ storyText, actions
     </div>
   );
 };
+    

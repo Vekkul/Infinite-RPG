@@ -102,8 +102,8 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
     const renderStatRow = (label: string, statKey: keyof Attributes, description: string) => (
         <div className="flex items-center justify-between bg-gray-900/50 p-2 rounded">
             <div className="flex-1">
-                <span className="font-bold text-lg text-white block">{label}</span>
-                <span className="text-xs text-gray-400">{description}</span>
+                <span className="font-bold text-lg text-white block font-cinzel">{label}</span>
+                <span className="text-xs text-gray-400 font-serif italic">{description}</span>
             </div>
             <div className="flex items-center gap-3">
                 <button 
@@ -111,7 +111,7 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
                     className="w-8 h-8 rounded bg-gray-700 hover:bg-gray-600 border border-gray-500 flex items-center justify-center font-bold text-xl"
                     disabled={attributes[statKey] <= BASE_STAT}
                 >-</button>
-                <span className={`text-xl font-mono font-bold w-6 text-center ${attributes[statKey] >= 8 ? 'text-green-400' : 'text-white'}`}>{attributes[statKey]}</span>
+                <span className={`text-xl font-bold w-6 text-center ${attributes[statKey] >= 8 ? 'text-green-400' : 'text-white'}`}>{attributes[statKey]}</span>
                 <button 
                     onClick={() => handleStatChange(statKey, 1)}
                     className="w-8 h-8 rounded bg-gray-700 hover:bg-gray-600 border border-gray-500 flex items-center justify-center font-bold text-xl"
@@ -123,35 +123,35 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
 
     return (
         <div className="flex flex-col flex-grow animate-fade-in text-lg overflow-y-auto h-full pr-2 p-4">
-            <h1 className="text-4xl md:text-5xl font-press-start text-yellow-400 mb-6 text-center" style={{textShadow: '2px 2px 0 #000'}}>Design Your Hero</h1>
+            <h1 className="text-4xl md:text-5xl font-cinzel font-bold text-yellow-400 mb-6 text-center drop-shadow-md">Design Your Hero</h1>
             
             <div className="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 pb-20">
                 {/* Left Side: Stats & Details */}
                 <div className="space-y-6">
                     {/* Identity */}
-                    <div className="bg-gray-800/80 p-4 rounded-lg border border-gray-600 space-y-4">
-                        <h2 className="text-xl font-bold text-blue-300 border-b border-gray-600 pb-2">Identity</h2>
+                    <div className="bg-gray-800/80 p-4 rounded-lg border border-gray-600 space-y-4 shadow-lg">
+                        <h2 className="text-xl font-cinzel font-bold text-blue-300 border-b border-gray-600 pb-2">Identity</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label htmlFor="name" className="block text-sm mb-1 text-gray-400 uppercase tracking-wide">Name</label>
+                                <label htmlFor="name" className="block text-sm mb-1 text-gray-400 uppercase tracking-wide font-bold">Name</label>
                                 <input
                                     id="name"
                                     type="text"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
-                                    className="w-full p-2 bg-gray-700 border-2 border-gray-500 rounded focus:outline-none focus:border-yellow-400"
+                                    className="w-full p-2 bg-gray-700 border-2 border-gray-500 rounded focus:outline-none focus:border-yellow-400 font-serif"
                                     maxLength={20}
                                     placeholder="e.g. Aragorn"
                                 />
                             </div>
                             <div>
-                                <label htmlFor="className" className="block text-sm mb-1 text-gray-400 uppercase tracking-wide">Class Name</label>
+                                <label htmlFor="className" className="block text-sm mb-1 text-gray-400 uppercase tracking-wide font-bold">Class Name</label>
                                 <input
                                     id="className"
                                     type="text"
                                     value={className}
                                     onChange={(e) => setClassName(e.target.value)}
-                                    className="w-full p-2 bg-gray-700 border-2 border-gray-500 rounded focus:outline-none focus:border-yellow-400"
+                                    className="w-full p-2 bg-gray-700 border-2 border-gray-500 rounded focus:outline-none focus:border-yellow-400 font-serif"
                                     maxLength={20}
                                     placeholder="e.g. Ranger"
                                 />
@@ -160,10 +160,10 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
                     </div>
 
                     {/* Stats */}
-                    <div className="bg-gray-800/80 p-4 rounded-lg border border-gray-600">
+                    <div className="bg-gray-800/80 p-4 rounded-lg border border-gray-600 shadow-lg">
                         <div className="flex justify-between items-center border-b border-gray-600 pb-2 mb-4">
-                             <h2 className="text-xl font-bold text-green-300">Attributes</h2>
-                             <span className={`font-mono text-sm ${remainingPoints > 0 ? 'text-yellow-400' : 'text-gray-500'}`}>Points Left: {remainingPoints}</span>
+                             <h2 className="text-xl font-cinzel font-bold text-green-300">Attributes</h2>
+                             <span className={`font-bold text-sm ${remainingPoints > 0 ? 'text-yellow-400' : 'text-gray-500'}`}>Points Left: {remainingPoints}</span>
                         </div>
                         <div className="space-y-3">
                             {renderStatRow("Strength", "strength", "Increases HP, Stamina, and Attack")}
@@ -173,8 +173,8 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
                     </div>
 
                     {/* Abilities */}
-                    <div className="bg-gray-800/80 p-4 rounded-lg border border-gray-600">
-                        <h2 className="text-xl font-bold text-purple-300 border-b border-gray-600 pb-2 mb-4">Starting Abilities (Max 2)</h2>
+                    <div className="bg-gray-800/80 p-4 rounded-lg border border-gray-600 shadow-lg">
+                        <h2 className="text-xl font-cinzel font-bold text-purple-300 border-b border-gray-600 pb-2 mb-4">Starting Abilities (Max 2)</h2>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-2">
                             {Object.values(PLAYER_ABILITIES).map(ability => (
                                 <div 
@@ -182,15 +182,15 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
                                     onClick={() => toggleAbility(ability.name)}
                                     className={`p-3 rounded border-2 cursor-pointer transition-all ${
                                         selectedAbilities.includes(ability.name) 
-                                        ? 'bg-purple-900/50 border-purple-400' 
+                                        ? 'bg-purple-900/50 border-purple-400 shadow-inner' 
                                         : 'bg-gray-900 border-gray-700 hover:border-gray-500'
                                     } ${selectedAbilities.length >= 2 && !selectedAbilities.includes(ability.name) ? 'opacity-50' : ''}`}
                                 >
                                     <div className="flex justify-between items-center mb-1">
-                                        <span className="font-bold text-sm text-white">{ability.name}</span>
-                                        <span className="text-xs text-gray-400 font-mono">{ability.cost} {ability.resource}</span>
+                                        <span className="font-cinzel font-bold text-sm text-white">{ability.name}</span>
+                                        <span className="text-xs text-gray-400 font-bold">{ability.cost} {ability.resource}</span>
                                     </div>
-                                    <p className="text-xs text-gray-400 leading-tight">{ability.description}</p>
+                                    <p className="text-xs text-gray-400 leading-tight font-serif italic">{ability.description}</p>
                                 </div>
                             ))}
                         </div>
@@ -199,13 +199,13 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
 
                 {/* Right Side: Visuals & Actions */}
                 <div className="flex flex-col space-y-6">
-                     <div className="bg-gray-800/80 p-4 rounded-lg border border-gray-600 h-full flex flex-col">
-                        <h2 className="text-xl font-bold text-orange-300 border-b border-gray-600 pb-2 mb-4">Visuals</h2>
+                     <div className="bg-gray-800/80 p-4 rounded-lg border border-gray-600 h-full flex flex-col shadow-lg">
+                        <h2 className="text-xl font-cinzel font-bold text-orange-300 border-b border-gray-600 pb-2 mb-4">Visuals</h2>
                         <textarea
                             id="description"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            className="w-full p-2 bg-gray-700 border-2 border-gray-500 rounded focus:outline-none focus:border-yellow-400 text-sm mb-4"
+                            className="w-full p-2 bg-gray-700 border-2 border-gray-500 rounded focus:outline-none focus:border-yellow-400 text-sm mb-4 font-serif"
                             rows={3}
                             placeholder="Describe your hero... (e.g., A masked duelist with twin daggers)"
                         />
@@ -233,7 +233,7 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
                         <button
                             onClick={handleGeneratePortrait}
                             disabled={isGenerating || !description.trim()}
-                            className="w-full mt-4 font-press-start text-sm bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded border-2 border-indigo-800 hover:border-indigo-700 transition-colors"
+                            className="w-full mt-4 font-cinzel text-sm bg-indigo-700 hover:bg-indigo-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded border-2 border-indigo-500 hover:border-indigo-400 transition-colors shadow-md"
                         >
                             {isGenerating ? 'Painting...' : 'Generate Portrait'}
                         </button>
@@ -242,7 +242,7 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
                     <button
                         onClick={handleCreate}
                         disabled={!name.trim() || !className.trim() || !portraitId || isGenerating || selectedAbilities.length === 0}
-                        className="w-full font-press-start text-xl bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-4 px-8 rounded-lg border-4 border-green-800 hover:green-700 transition-all transform hover:scale-105 shadow-lg"
+                        className="w-full font-cinzel text-xl bg-green-700 hover:bg-green-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-4 px-8 rounded-lg border-2 border-green-500 hover:border-green-400 transition-all transform hover:scale-105 shadow-xl"
                     >
                         Start Adventure
                     </button>
@@ -251,3 +251,4 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
         </div>
     );
 };
+    

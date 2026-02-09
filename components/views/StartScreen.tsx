@@ -11,14 +11,14 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart, onLoad, saveF
   return (
     <div className="text-center flex flex-col items-center justify-center h-full w-full animate-fade-in overflow-y-auto">
       <div className="flex flex-col items-center justify-center min-h-full py-8">
-        <h1 className="text-4xl sm:text-6xl font-press-start text-yellow-400 mb-4" style={{textShadow: '3px 3px 0 #000'}}>Infinite JRPG</h1>
-        <p className="text-xl mb-8 max-w-lg">An endless adventure powered by Gemini. Explore, battle, and grow stronger in a world that never ends.</p>
+        <h1 className="text-5xl sm:text-7xl font-cinzel font-bold text-yellow-400 mb-4 drop-shadow-lg" style={{textShadow: '3px 3px 6px rgba(0,0,0,0.8)'}}>Infinite JRPG</h1>
+        <p className="text-2xl mb-8 max-w-lg font-serif italic text-gray-300">An endless adventure powered by Gemini. Explore, battle, and grow stronger in a world that never ends.</p>
         <div className="flex flex-col gap-4 w-full max-w-sm">
-          <button onClick={onStart} className="font-press-start text-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-lg border-4 border-blue-800 hover:border-blue-700 transition-all duration-300 transform hover:scale-105">
+          <button onClick={onStart} className="font-cinzel text-2xl bg-blue-700 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-lg border-2 border-blue-500 shadow-xl hover:shadow-2xl hover:border-blue-400 transition-all duration-300 transform hover:scale-105 tracking-wide">
             Start Your Journey
           </button>
           {saveFileExists && (
-            <button onClick={onLoad} className="font-press-start text-xl bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-6 rounded-lg border-4 border-green-800 hover:border-green-700 transition-all duration-300 transform hover:scale-105">
+            <button onClick={onLoad} className="font-cinzel text-xl bg-green-700 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg border-2 border-green-500 shadow-lg hover:shadow-xl hover:border-green-400 transition-all duration-300 transform hover:scale-105 tracking-wide">
               Load Game
             </button>
           )}
@@ -27,3 +27,4 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart, onLoad, saveF
     </div>
   );
 };
+    

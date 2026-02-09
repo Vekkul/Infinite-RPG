@@ -34,7 +34,7 @@ const EnemyUnit = React.memo(({ enemy, index, damagePopups }: { enemy: Enemy, in
     return (
         <div 
             className={`relative bg-gray-800/90 p-3 rounded-lg border-2 shadow-lg animate-fade-in w-full sm:w-48 text-center transition-all duration-300 ${
-                enemy.isShielded ? 'border-cyan-400 shadow-lg shadow-cyan-400/50 animate-pulse' : 'border-red-500'
+                enemy.isShielded ? 'border-cyan-400 shadow-lg shadow-cyan-400/50 animate-pulse' : 'border-red-500/80'
             }`}
         >
             {damagePopups.map(p => (
@@ -43,16 +43,16 @@ const EnemyUnit = React.memo(({ enemy, index, damagePopups }: { enemy: Enemy, in
                 </div>
             ))}
             
-            <div className="flex items-center justify-center gap-1.5 mb-1 relative z-10 flex-wrap">
-                <h2 className="text-lg font-press-start text-red-300 truncate max-w-[70%]" title={enemy.name}>{enemy.name}</h2>
+            <div className="flex items-center justify-center gap-1.5 mb-2 relative z-10 flex-wrap">
+                <h2 className="text-lg font-cinzel font-bold text-red-200 truncate max-w-[80%]" title={enemy.name}>{enemy.name}</h2>
                 
                 {/* Info Tooltip */}
                 <div className="group/info relative flex items-center justify-center">
-                    <div className="w-5 h-5 rounded-full border border-gray-500 text-gray-400 text-xs flex items-center justify-center cursor-help hover:bg-gray-700 hover:text-white transition-colors bg-gray-900">?</div>
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-gray-900/95 backdrop-blur-sm border border-yellow-500/30 text-white text-xs p-3 rounded-lg shadow-2xl opacity-0 group-hover/info:opacity-100 transition-opacity pointer-events-none z-[100] text-left">
-                        <p className="font-bold text-yellow-500 mb-1">{enemy.name}</p>
-                        <p className="italic text-gray-300 mb-2 leading-relaxed">{enemy.description}</p>
-                        <div className="border-t border-gray-700 pt-2 grid grid-cols-2 gap-x-2 gap-y-1 font-mono text-[10px] text-gray-400">
+                    <div className="w-5 h-5 rounded-full border border-gray-500 text-gray-400 text-xs flex items-center justify-center cursor-help hover:bg-gray-700 hover:text-white transition-colors bg-gray-900 font-serif italic">i</div>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-gray-900/95 backdrop-blur-sm border border-yellow-500/30 text-white text-xs p-3 rounded-lg shadow-2xl opacity-0 group-hover/info:opacity-100 transition-opacity pointer-events-none z-[100] text-left font-sans">
+                        <p className="font-bold font-cinzel text-yellow-500 mb-1 text-sm">{enemy.name}</p>
+                        <p className="italic text-gray-300 mb-2 leading-relaxed font-serif">{enemy.description}</p>
+                        <div className="border-t border-gray-700 pt-2 grid grid-cols-2 gap-x-2 gap-y-1 font-bold text-[10px] text-gray-400">
                                 <span>ATK: <span className="text-gray-200">{enemy.attack}</span></span>
                                 <span>HP: <span className="text-gray-200">{enemy.hp}/{enemy.maxHp}</span></span>
                                 {enemy.element && enemy.element !== 'NONE' && <span className="col-span-2 text-blue-300">Element: {enemy.element}</span>}
@@ -169,10 +169,10 @@ export const CombatView: React.FC<CombatViewProps> = ({ storyText, enemies, play
                             key={abilityName} 
                             onClick={() => handleActionClick('ability', abilityName)} 
                             disabled={!canAfford} 
-                            className={`flex items-center justify-between gap-2 text-base md:text-lg text-white font-bold py-3 px-4 rounded-lg border-2 active:scale-95 transition-all ${colorClass} disabled:opacity-50 disabled:grayscale`}
+                            className={`flex items-center justify-between gap-2 text-base md:text-lg text-white font-cinzel font-bold py-3 px-4 rounded-lg border-2 active:scale-95 transition-all ${colorClass} disabled:opacity-50 disabled:grayscale`}
                         >
                             <span>{details.name}</span>
-                            <span className="text-xs font-mono bg-black/30 px-2 py-1 rounded">{details.cost} {details.resource}</span>
+                            <span className="text-xs font-sans font-bold bg-black/30 px-2 py-1 rounded tracking-wide">{details.cost} {details.resource}</span>
                         </button>
                     );
                 })}
@@ -186,7 +186,7 @@ export const CombatView: React.FC<CombatViewProps> = ({ storyText, enemies, play
             <div className="flex-1 min-h-0 overflow-y-auto pr-2 pb-2 flex flex-col gap-4">
                 {/* Narrative Area */}
                 <div className="min-h-[3rem] shrink-0">
-                    <p className={`transition-opacity duration-300 text-lg ${!isPlayerTurn ? 'opacity-50' : ''}`}>{displayedText}</p>
+                    <p className={`transition-opacity duration-300 text-lg md:text-xl font-serif leading-relaxed ${!isPlayerTurn ? 'opacity-50' : ''}`}>{displayedText}</p>
                 </div>
                 
                 {/* Enemies Area */}
@@ -209,26 +209,26 @@ export const CombatView: React.FC<CombatViewProps> = ({ storyText, enemies, play
                 <div className="grid grid-cols-2 gap-2 md:gap-3">
                      {isPlayerTurn && view === 'main' && (
                         <>
-                            <button onClick={() => handleActionClick('attack')} className="flex items-center justify-center gap-2 text-base md:text-lg bg-red-700 hover:bg-red-600 text-white font-bold py-3 px-2 rounded-lg border-2 border-red-500 active:scale-95 transition-all"><SwordIcon/>Attack</button>
-                            <button onClick={() => setView('abilities')} disabled={player.abilities.length === 0} className="flex items-center justify-center gap-2 text-base md:text-lg bg-purple-700 hover:bg-purple-600 disabled:bg-gray-700 text-white font-bold py-3 px-2 rounded-lg border-2 border-purple-500 active:scale-95 transition-all"><StarIcon />Ability</button>
-                            <button onClick={() => onCombatAction('defend')} className="flex items-center justify-center gap-2 text-base md:text-lg bg-blue-700 hover:bg-blue-600 text-white font-bold py-3 px-2 rounded-lg border-2 border-blue-500 active:scale-95 transition-all"><ShieldIcon/>Defend</button>
-                            <button onClick={() => onCombatAction('flee')} className="flex items-center justify-center gap-2 text-base md:text-lg bg-green-700 hover:bg-green-600 text-white font-bold py-3 px-2 rounded-lg border-2 border-green-500 active:scale-95 transition-all"><RunIcon/>Flee</button>
+                            <button onClick={() => handleActionClick('attack')} className="flex items-center justify-center gap-2 text-base md:text-lg bg-red-800 hover:bg-red-700 text-white font-cinzel font-bold py-3 px-2 rounded-lg border-2 border-red-600 active:scale-95 transition-all shadow-md"><SwordIcon/>Attack</button>
+                            <button onClick={() => setView('abilities')} disabled={player.abilities.length === 0} className="flex items-center justify-center gap-2 text-base md:text-lg bg-purple-800 hover:bg-purple-700 disabled:bg-gray-700 text-white font-cinzel font-bold py-3 px-2 rounded-lg border-2 border-purple-600 active:scale-95 transition-all shadow-md"><StarIcon />Ability</button>
+                            <button onClick={() => onCombatAction('defend')} className="flex items-center justify-center gap-2 text-base md:text-lg bg-blue-800 hover:bg-blue-700 text-white font-cinzel font-bold py-3 px-2 rounded-lg border-2 border-blue-600 active:scale-95 transition-all shadow-md"><ShieldIcon/>Defend</button>
+                            <button onClick={() => onCombatAction('flee')} className="flex items-center justify-center gap-2 text-base md:text-lg bg-green-800 hover:bg-green-700 text-white font-cinzel font-bold py-3 px-2 rounded-lg border-2 border-green-600 active:scale-95 transition-all shadow-md"><RunIcon/>Flee</button>
                         </>
                      )}
                      {isPlayerTurn && view === 'targeting' && (
                         <div className="col-span-full flex flex-col gap-2 animate-fade-in-short max-h-32 md:max-h-48 overflow-y-auto pr-2">
-                            <p className="text-center text-sm uppercase tracking-wide text-gray-400">Select Target</p>
+                            <p className="text-center text-sm uppercase tracking-wide text-gray-400 font-bold">Select Target</p>
                             {enemies.map((enemy, index) => enemy.hp > 0 && (
-                                <button key={index} onClick={() => handleTargetSelect(index)} className="w-full text-lg bg-red-800 hover:bg-red-700 text-white font-bold py-3 px-3 rounded-lg border-2 border-red-600">{enemy.name}</button>
+                                <button key={index} onClick={() => handleTargetSelect(index)} className="w-full text-lg bg-red-800 hover:bg-red-700 text-white font-cinzel font-bold py-3 px-3 rounded-lg border-2 border-red-600">{enemy.name}</button>
                             ))}
-                            <button onClick={() => setView('main')} className="w-full text-lg bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-3 rounded-lg border-2 border-gray-400">Cancel</button>
+                            <button onClick={() => setView('main')} className="w-full text-lg bg-gray-600 hover:bg-gray-500 text-white font-cinzel font-bold py-3 px-3 rounded-lg border-2 border-gray-400">Cancel</button>
                         </div>
                     )}
                     {isPlayerTurn && view === 'abilities' && (
                         <div className="col-span-full flex flex-col gap-2 animate-fade-in-short">
-                            <p className="text-center text-sm uppercase tracking-wide text-gray-400">Select Ability</p>
+                            <p className="text-center text-sm uppercase tracking-wide text-gray-400 font-bold">Select Ability</p>
                             {renderAbilities}
-                            <button onClick={() => setView('main')} className="w-full text-lg bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-3 rounded-lg border-2 border-gray-400 mt-2">Back</button>
+                            <button onClick={() => setView('main')} className="w-full text-lg bg-gray-600 hover:bg-gray-500 text-white font-cinzel font-bold py-3 px-3 rounded-lg border-2 border-gray-400 mt-2">Back</button>
                         </div>
                     )}
                 </div>
@@ -236,3 +236,4 @@ export const CombatView: React.FC<CombatViewProps> = ({ storyText, enemies, play
         </div>
     );
 };
+    

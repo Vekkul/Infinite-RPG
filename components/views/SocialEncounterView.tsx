@@ -26,7 +26,7 @@ export const SocialEncounterView: React.FC<SocialEncounterViewProps> = ({ encoun
     <div className="flex flex-col h-full">
       {/* Scrollable Content Area */}
       <div className="flex-1 min-h-0 overflow-y-auto pr-2 pb-2">
-          <p className="animate-fade-in text-lg md:text-xl leading-relaxed">{displayedText}</p>
+          <p className="animate-fade-in text-lg md:text-xl leading-relaxed font-serif text-gray-200">{displayedText}</p>
       </div>
       
       {/* Fixed Bottom Choices */}
@@ -39,7 +39,7 @@ export const SocialEncounterView: React.FC<SocialEncounterViewProps> = ({ encoun
             value={improviseInput}
             onChange={(e) => setImproviseInput(e.target.value)}
             placeholder="Do something unexpected..."
-            className="flex-1 bg-gray-800 text-white p-3 rounded-lg border border-gray-600 focus:outline-none focus:border-yellow-500 placeholder-gray-500"
+            className="flex-1 bg-gray-800 text-white p-3 rounded-lg border border-gray-600 focus:outline-none focus:border-yellow-500 placeholder-gray-500 font-serif"
             maxLength={60}
           />
           <button 
@@ -56,7 +56,7 @@ export const SocialEncounterView: React.FC<SocialEncounterViewProps> = ({ encoun
             <button 
               key={index} 
               onClick={() => onChoice(choice)} 
-              className="w-full text-base md:text-lg bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 md:py-4 px-4 rounded-lg border-2 border-gray-500 active:scale-95 transition-all duration-200"
+              className="w-full text-base md:text-lg bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 md:py-4 px-4 rounded-lg border-2 border-gray-500 active:scale-95 transition-all duration-200 font-cinzel tracking-wide shadow-md"
             >
               {choice.label}
             </button>
@@ -66,3 +66,4 @@ export const SocialEncounterView: React.FC<SocialEncounterViewProps> = ({ encoun
     </div>
   );
 };
+    

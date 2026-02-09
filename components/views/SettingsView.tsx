@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { AppSettings } from '../../types';
 
 interface SettingsViewProps {
@@ -14,7 +14,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isOpen, onClose, set
 
   return (
     <div 
-      className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-fade-in"
+      className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-fade-in backdrop-blur-sm"
       onClick={onClose}
     >
       <div 
@@ -22,7 +22,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isOpen, onClose, set
         onClick={e => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-6 border-b-2 border-gray-600 pb-2">
-            <h2 className="text-3xl font-press-start text-gray-300">Settings</h2>
+            <h2 className="text-3xl font-cinzel font-bold text-gray-300">Settings</h2>
             <button onClick={onClose} className="text-3xl font-bold text-gray-400 hover:text-white">&times;</button>
         </div>
 
@@ -30,8 +30,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isOpen, onClose, set
             {/* CRT Toggle */}
             <div className="flex justify-between items-center">
                 <div>
-                    <label className="text-xl font-bold text-white block">Retro Display</label>
-                    <p className="text-sm text-gray-400">Enable CRT scanlines & vignette</p>
+                    <label className="text-xl font-bold text-white block font-cinzel">Retro Display</label>
+                    <p className="text-sm text-gray-400 font-serif italic">Enable CRT scanlines & vignette</p>
                 </div>
                 <button 
                     onClick={() => onUpdateSettings({ crtEnabled: !settings.crtEnabled })}
@@ -43,7 +43,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isOpen, onClose, set
 
             {/* Text Speed */}
             <div>
-                <label className="text-xl font-bold text-white block mb-2">Text Speed</label>
+                <label className="text-xl font-bold text-white block mb-2 font-cinzel">Text Speed</label>
                 <div className="grid grid-cols-4 gap-2">
                     {[
                         { label: 'Slow', val: 50 },
@@ -70,7 +70,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isOpen, onClose, set
         <div className="mt-8 pt-4 border-t border-gray-600">
             <button 
                 onClick={onClose} 
-                className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-lg border-2 border-gray-500"
+                className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-lg border-2 border-gray-500 font-cinzel"
             >
                 Close
             </button>
@@ -79,3 +79,4 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isOpen, onClose, set
     </div>
   );
 };
+    

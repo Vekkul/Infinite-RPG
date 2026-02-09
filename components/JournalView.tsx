@@ -23,14 +23,14 @@ export const JournalView: React.FC<JournalViewProps> = ({ isOpen, onClose, playe
       onClick={onClose}
     >
       <div 
-        className="bg-stone-900 rounded-lg border-4 border-amber-700 shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col transform transition-all"
+        className="bg-stone-900 rounded-lg border-4 border-amber-800 shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col transform transition-all"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 border-b-2 border-amber-600/50 flex justify-between items-center bg-stone-950 rounded-t-lg">
+        <div className="p-4 border-b-2 border-amber-700/50 flex justify-between items-center bg-stone-950 rounded-t-lg">
           <div className="flex items-center gap-3">
              <span className="text-3xl">📖</span>
-             <h2 className="text-3xl font-press-start text-amber-500" style={{ textShadow: '2px 2px 0 #3f2e18' }}>Journal</h2>
+             <h2 className="text-3xl font-cinzel font-bold text-amber-500" style={{ textShadow: '2px 2px 0 #3f2e18' }}>Journal</h2>
           </div>
           <button 
             onClick={onClose} 
@@ -46,7 +46,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ isOpen, onClose, playe
           
           {/* Active Quests */}
           <section className="mb-10">
-            <h3 className="text-xl font-bold border-b-2 border-amber-800/50 mb-6 pb-2 text-amber-400 flex items-center gap-2 uppercase tracking-wide">
+            <h3 className="text-xl font-cinzel font-bold border-b-2 border-amber-800/50 mb-6 pb-2 text-amber-400 flex items-center gap-2 uppercase tracking-wide">
               <span>⚡</span> Active Quests
             </h3>
             
@@ -67,7 +67,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ isOpen, onClose, playe
                             <div className="relative z-10">
                                 <div className="flex justify-between items-start mb-3 gap-4">
                                     <h4 className="text-xl font-bold text-amber-100 group-hover:text-amber-300 transition-colors">{quest.title}</h4>
-                                    <span className="shrink-0 text-[10px] uppercase font-bold tracking-wider bg-amber-900/60 text-amber-200 px-2 py-1 rounded border border-amber-700/50 shadow-sm">
+                                    <span className="shrink-0 text-[10px] uppercase font-bold tracking-wider bg-amber-900/60 text-amber-200 px-2 py-1 rounded border border-amber-700/50 shadow-sm font-cinzel">
                                         In Progress
                                     </span>
                                 </div>
@@ -84,7 +84,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ isOpen, onClose, playe
           {/* Completed / Failed Archives */}
           {(completedQuests.length > 0 || failedQuests.length > 0) && (
             <section className="mb-8">
-                <h3 className="text-lg font-bold border-b border-stone-800 mb-4 pb-2 text-stone-500 flex items-center gap-2 uppercase tracking-wide">
+                <h3 className="text-lg font-cinzel font-bold border-b border-stone-800 mb-4 pb-2 text-stone-500 flex items-center gap-2 uppercase tracking-wide">
                     <span>🗃️</span> Archives
                 </h3>
                 <div className="grid grid-cols-1 gap-2">
@@ -98,7 +98,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ isOpen, onClose, playe
                             <div className="flex-grow">
                                 <span className="text-stone-500 font-medium line-through decoration-stone-700 group-hover:text-stone-400 transition-colors">{quest.title}</span>
                             </div>
-                            <span className="text-xs text-stone-600 font-mono">COMPLETED</span>
+                            <span className="text-xs text-stone-600 font-bold tracking-wider font-cinzel">COMPLETED</span>
                         </div>
                     ))}
                      {failedQuests.map(quest => (
@@ -111,7 +111,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ isOpen, onClose, playe
                             <div className="flex-grow">
                                 <span className="text-stone-500 font-medium line-through decoration-stone-700 group-hover:text-stone-400 transition-colors">{quest.title}</span>
                             </div>
-                            <span className="text-xs text-red-900/50 font-mono">FAILED</span>
+                            <span className="text-xs text-red-900/50 font-bold tracking-wider font-cinzel">FAILED</span>
                         </div>
                     ))}
                 </div>
@@ -120,7 +120,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ isOpen, onClose, playe
           
            {/* Narrative Flags */}
            <div className="mt-8 pt-6 border-t border-stone-800/80">
-               <h4 className="text-xs uppercase tracking-widest text-stone-600 mb-3 flex items-center gap-2 font-bold">
+               <h4 className="text-xs uppercase tracking-widest text-stone-600 mb-3 flex items-center gap-2 font-bold font-cinzel">
                    <span>🧶</span> Narrative Threads
                </h4>
                {player.journal.flags.length === 0 ? (
@@ -145,3 +145,4 @@ export const JournalView: React.FC<JournalViewProps> = ({ isOpen, onClose, playe
     </div>
   );
 };
+    
