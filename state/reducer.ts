@@ -1,5 +1,4 @@
 
-
 import { AppState, Action, GameState, Item, Player, Enemy, RewardType, MapLocation, PlayerAbility, StatusEffect, StatusEffectType, Element, ItemType, EquipmentSlot, Quest, Attributes } from '../types';
 import { initialState } from './initialState';
 import { PLAYER_ABILITIES, ELEMENTAL_RESISTANCES, STATUS_EFFECT_CONFIG } from '../constants';
@@ -161,7 +160,7 @@ export const reducer = (state: AppState, action: Action): AppState => {
             abilities,
             portrait,
             statusEffects: [],
-            journal: { quests: [], flags: [], notes: [] },
+            journal: { quests: [], flags: [], notes: [], history: [`Started adventure as ${name} the ${className}.`] },
         };
 
         // Calculate initial derived stats based on choices
@@ -592,6 +591,11 @@ export const reducer = (state: AppState, action: Action): AppState => {
              }
         }
 
+        // Add to history
+        newJournal.history = [...(newJournal.history || [])];
+        if (newJournal.history.length > 10) newJournal.history.shift();
+        newJournal.history.push(choice.outcome);
+
         if (choice.reward) {
             switch (choice.reward.type) {
                 case RewardType.XP:
@@ -610,6 +614,7 @@ export const reducer = (state: AppState, action: Action): AppState => {
                         if (!newJournal.quests.some(q => q.id === choice.reward.quest!.id)) {
                              newJournal.quests = [...newJournal.quests, choice.reward.quest];
                              newLog = appendToLog(newLog, `Quest Started: ${choice.reward.quest.title}`);
+                             newJournal.history.push(`Started quest: ${choice.reward.quest.title}`);
                         }
                     }
                     break;
@@ -674,6 +679,22 @@ export const reducer = (state: AppState, action: Action): AppState => {
              return { ...state, player: { ...state.player, journal: newJournal } };
          }
          return state;
+    }
+
+    case 'ADD_NARRATIVE_HISTORY': {
+        const newJournal = { ...state.player.journal };
+        const newHistory = [...(newJournal.history || [])];
+        // Sliding window: keep last 10 events
+        if (newHistory.length >= 10) {
+            newHistory.shift();
+        }
+        newHistory.push(action.payload);
+        newJournal.history = newHistory;
+        
+        return {
+            ...state,
+            player: { ...state.player, journal: newJournal }
+        };
     }
 
     case 'SAVE_SCENE_STATE':

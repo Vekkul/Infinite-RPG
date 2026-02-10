@@ -16,6 +16,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ isOpen, onClose, playe
   const activeQuests = player.journal.quests.filter(q => q.status === 'ACTIVE');
   const completedQuests = player.journal.quests.filter(q => q.status === 'COMPLETED');
   const failedQuests = player.journal.quests.filter(q => q.status === 'FAILED');
+  const history = player.journal.history || [];
 
   return (
     <div 
@@ -79,6 +80,25 @@ export const JournalView: React.FC<JournalViewProps> = ({ isOpen, onClose, playe
                     ))}
                 </div>
             )}
+          </section>
+
+          {/* Narrative History */}
+          <section className="mb-10">
+              <h3 className="text-xl font-cinzel font-bold border-b-2 border-amber-800/50 mb-6 pb-2 text-stone-300 flex items-center gap-2 uppercase tracking-wide">
+                  <span>📜</span> Recent Chronicles
+              </h3>
+              {history.length === 0 ? (
+                   <p className="text-stone-600 italic">No legends recorded yet...</p>
+              ) : (
+                  <ul className="space-y-3 relative border-l border-stone-800 ml-3 pl-6">
+                      {history.slice().reverse().map((event, i) => (
+                          <li key={i} className="relative text-stone-400">
+                              <span className="absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full bg-stone-700 border-2 border-stone-900"></span>
+                              {event}
+                          </li>
+                      ))}
+                  </ul>
+              )}
           </section>
 
           {/* Completed / Failed Archives */}
@@ -145,4 +165,3 @@ export const JournalView: React.FC<JournalViewProps> = ({ isOpen, onClose, playe
     </div>
   );
 };
-    

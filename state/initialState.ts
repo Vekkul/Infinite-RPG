@@ -1,5 +1,4 @@
 
-
 import { GameState, AppState } from '../types';
 import { INITIAL_PLAYER_STATS } from '../constants';
 
@@ -16,7 +15,8 @@ export const initialState: AppState = {
       journal: {
           quests: [],
           flags: [],
-          notes: []
+          notes: [],
+          history: [] // Initialize history
       }
   },
   enemies: [],

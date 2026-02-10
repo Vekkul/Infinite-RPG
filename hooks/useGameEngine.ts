@@ -111,6 +111,8 @@ export const useGameEngine = () => {
             if (foundItem) {
                 handleFoundItem(foundItem);
             }
+            // Add initial history
+            dispatch({ type: 'ADD_NARRATIVE_HISTORY', payload: `Arrived at ${startLocation.name}.` });
         }
         dispatch({ type: 'SET_GAME_STATE', payload: GameState.EXPLORING });
 
@@ -184,6 +186,7 @@ export const useGameEngine = () => {
              const quest = player.journal.quests.find(q => q.id === result.questUpdate?.questId);
              if (quest) {
                 dispatch({ type: 'UPDATE_QUEST_STATUS', payload: { id: result.questUpdate.questId, status: result.questUpdate.status } });
+                dispatch({ type: 'ADD_NARRATIVE_HISTORY', payload: `Quest ${result.questUpdate.status}: ${quest.title}` });
                 createEventPopup(`Quest ${result.questUpdate.status === 'COMPLETED' ? 'Complete' : 'Failed'}: ${quest.title}`, 'quest');
              }
         }
@@ -263,6 +266,7 @@ export const useGameEngine = () => {
                 const quest = player.journal.quests.find(q => q.id === result.questUpdate?.questId);
                 if (quest) {
                     dispatch({ type: 'UPDATE_QUEST_STATUS', payload: { id: result.questUpdate.questId, status: result.questUpdate.status } });
+                    dispatch({ type: 'ADD_NARRATIVE_HISTORY', payload: `Quest ${result.questUpdate.status}: ${quest.title}` });
                     createEventPopup(`Quest ${result.questUpdate.status === 'COMPLETED' ? 'Complete' : 'Failed'}: ${quest.title}`, 'quest');
                 }
             }
@@ -326,6 +330,7 @@ export const useGameEngine = () => {
                     if (!newLocation) return;
                     
                     appendToLog(`You travel to ${newLocation.name}...`);
+                    dispatch({ type: 'ADD_NARRATIVE_HISTORY', payload: `Traveled to ${newLocation.name}.` });
                     
                     if (Math.random() < TRAVEL_ENCOUNTER_CHANCE) {
                         // Optimization: Movement encounter. Do NOT save scene state as we want to generate new scene on win.
@@ -403,7 +408,7 @@ export const useGameEngine = () => {
     }, [createEventPopup]);
 
 
-    const loadSceneForCurrentLocation = useCallback(async () => {
+    const loadSceneForCurrentLocation = useCallback(async (recentCombat?: { enemies: Enemy[], result: 'VICTORY' | 'FLED' }) => {
         const opId = ++operationIdRef.current;
         if (!worldData || !playerLocationId) return;
 
@@ -412,7 +417,7 @@ export const useGameEngine = () => {
         const currentLocation = worldData.locations.find(l => l.id === playerLocationId);
         if (!currentLocation) return;
         
-        const { description, actions: localActions, foundItem, isFallback } = await generateScene(player, currentLocation);
+        const { description, actions: localActions, foundItem, isFallback } = await generateScene(player, currentLocation, recentCombat);
         if (opId !== operationIdRef.current) return;
 
         if (isFallback) handleFallback();
@@ -463,10 +468,12 @@ export const useGameEngine = () => {
                 appendToLog('You successfully escaped!');
                 // OPTIMIZATION: Check if we can restore local scene instead of calling API
                 if (isLocalCombatRef.current && stateRef.current.preCombatState) {
-                    dispatch({ type: 'RESTORE_SCENE_STATE', payload: { appendText: 'You managed to run away.' } });
+                    const enemyNames = enemies.map(e => e.name).join(', ');
+                    dispatch({ type: 'RESTORE_SCENE_STATE', payload: { appendText: `You managed to escape from the ${enemyNames}.` } });
+                    dispatch({ type: 'ADD_NARRATIVE_HISTORY', payload: `Fled from ${enemyNames}.` });
                     dispatch({ type: 'SET_ENEMIES', payload: [] });
                 } else {
-                    await loadSceneForCurrentLocation();
+                    await loadSceneForCurrentLocation({ enemies, result: 'FLED' });
                     dispatch({ type: 'SET_ENEMIES', payload: [] });
                 }
                 return;
@@ -525,7 +532,8 @@ export const useGameEngine = () => {
         const handleCombatVictory = async (defeatedEnemies: Enemy[]) => {
             const totalXpGained = defeatedEnemies.reduce((sum, e) => sum + Math.floor(e.maxHp / 2) + e.attack, 0);
             const lootItems = defeatedEnemies.map(e => e.loot).filter((l): l is Omit<Item, 'quantity'> => !!l);
-    
+            const enemyNames = defeatedEnemies.map(e => e.name).join(', ');
+
             createEventPopup('VICTORY!', 'info');
             if (totalXpGained > 0) setTimeout(() => createEventPopup(`+${totalXpGained} XP`, 'xp'), 500);
             lootItems.forEach((item, index) => setTimeout(() => createEventPopup(`Found: ${item.name}!`, 'item'), 1000 + index * 500));
@@ -555,13 +563,23 @@ export const useGameEngine = () => {
                 payload: { xpGained: totalXpGained, loot: lootItems, regen }
             });
             
+            // Add to Narrative History
+            dispatch({ type: 'ADD_NARRATIVE_HISTORY', payload: `Defeated ${enemyNames}.` });
+            
             // OPTIMIZATION: Check if we can restore local scene instead of calling API
             // Use stateRef to access the latest state without adding it to the dependency array
             if (isLocalCombatRef.current && stateRef.current.preCombatState) {
-                dispatch({ type: 'RESTORE_SCENE_STATE', payload: { appendText: 'The enemies lie defeated.' } });
+                const victoryTexts = [
+                    `The ${enemyNames} lies defeated at your feet.`,
+                    `Silence falls as the ${enemyNames} is vanquished.`,
+                    `You stand victorious over the fallen ${enemyNames}.`
+                ];
+                const text = victoryTexts[Math.floor(Math.random() * victoryTexts.length)];
+
+                dispatch({ type: 'RESTORE_SCENE_STATE', payload: { appendText: text } });
                 dispatch({ type: 'SET_ENEMIES', payload: [] });
             } else {
-                await loadSceneForCurrentLocation();
+                await loadSceneForCurrentLocation({ enemies: defeatedEnemies, result: 'VICTORY' });
                 dispatch({ type: 'SET_ENEMIES', payload: [] });
             }
         };

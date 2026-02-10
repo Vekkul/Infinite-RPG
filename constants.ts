@@ -33,7 +33,8 @@ export const INITIAL_PLAYER_STATS: Player = {
   journal: {
       quests: [],
       flags: [],
-      notes: []
+      notes: [],
+      history: []
   }
 };
 

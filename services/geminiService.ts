@@ -221,10 +221,16 @@ const getContextString = (player: Player) => {
              context += ` Active Quests: ${activeQuests}.`;
         }
     }
+    
+    // Inject the Narrative History chain
+    if (player.journal.history && player.journal.history.length > 0) {
+        context += ` Story So Far: ${player.journal.history.join(' -> ')}.`;
+    }
+
     if (player.journal.flags.length > 0) {
         // Optimization: Limit to last 8 flags to keep context small but relevant
         const recentFlags = player.journal.flags.slice(-8);
-        context += ` Recent Events: ${recentFlags.join(', ')}.`;
+        context += ` Recent Flags: ${recentFlags.join(', ')}.`;
     }
     return context;
 };
@@ -301,12 +307,26 @@ export const generateImproviseResult = async (player: Player, input: string): Pr
     }
 };
 
-export const generateScene = async (player: Player, location: MapLocation): Promise<{ description: string; actions: GameAction[]; foundItem?: Omit<Item, 'quantity'>; isFallback?: boolean; }> => {
+export const generateScene = async (
+    player: Player, 
+    location: MapLocation, 
+    recentCombat?: { enemies: Enemy[], result: 'VICTORY' | 'FLED' }
+): Promise<{ description: string; actions: GameAction[]; foundItem?: Omit<Item, 'quantity'>; isFallback?: boolean; }> => {
     try {
         const context = getContextString(player);
+        let prompt = `${context} Arrived at ${location.name}: "${location.description}".`;
+
+        if (recentCombat) {
+            const enemyNames = recentCombat.enemies.map(e => e.name).join(', ');
+            const action = recentCombat.result === 'VICTORY' ? 'just defeated' : 'just escaped from';
+            prompt += ` Context update: The player ${action} a ${enemyNames} while traveling here. Incorporate this aftermath into the location description (e.g. wiping blade, catching breath) but focusing on the new location.`;
+        }
+
+        prompt += ` Describe scene. 1-2 local actions.`;
+
         const response = await callWithRetry<GenerateContentResponse>(() => getAi().models.generateContent({
             model: TEXT_MODEL,
-            contents: `${context} Arrived at ${location.name}: "${location.description}". Describe scene. 1-2 local actions.`,
+            contents: prompt,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: "application/json",

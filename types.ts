@@ -1,5 +1,4 @@
 
-
 export enum GameState {
   LOADING = 'LOADING',
   START_SCREEN = 'START_SCREEN',
@@ -107,6 +106,7 @@ export interface PlayerJournal {
     quests: Quest[];
     flags: string[]; 
     notes: string[]; 
+    history: string[]; // Chronological list of significant events
 }
 
 export interface Attributes {
@@ -297,5 +297,6 @@ export type Action =
   | { type: 'ADD_QUEST'; payload: Quest }
   | { type: 'UPDATE_QUEST_STATUS'; payload: { id: string; status: Quest['status'] } }
   | { type: 'ADD_JOURNAL_FLAG'; payload: string }
+  | { type: 'ADD_NARRATIVE_HISTORY'; payload: string } // New Action
   | { type: 'SAVE_SCENE_STATE' }
   | { type: 'RESTORE_SCENE_STATE'; payload?: { appendText: string } };
