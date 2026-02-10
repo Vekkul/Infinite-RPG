@@ -1,7 +1,7 @@
 
 import { Player, PlayerAbility, Element, StatusEffectType, Recipe, ItemType, EquipmentSlot } from './types';
 
-export const JRPG_SAVE_KEY = 'jrpgSaveDataV3';
+export const RPG_SAVE_KEY = 'rpgSaveDataV1';
 
 export const INITIAL_PLAYER_STATS: Player = {
   name: 'Hero',

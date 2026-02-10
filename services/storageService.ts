@@ -1,8 +1,8 @@
 
 import { SaveData } from '../types';
-import { JRPG_SAVE_KEY } from '../constants';
+import { RPG_SAVE_KEY } from '../constants';
 
-const DB_NAME = 'InfiniteJRPG_DB';
+const DB_NAME = 'InfiniteRPG_DB';
 const STORE_NAME = 'saves';
 const DB_VERSION = 1;
 
@@ -34,7 +34,7 @@ export const saveGameToStorage = async (data: SaveData): Promise<void> => {
         await new Promise<void>((resolve, reject) => {
             const transaction = db.transaction(STORE_NAME, 'readwrite');
             const store = transaction.objectStore(STORE_NAME);
-            const request = store.put(data, JRPG_SAVE_KEY);
+            const request = store.put(data, RPG_SAVE_KEY);
             
             request.onerror = () => reject(request.error);
             request.onsuccess = () => resolve();
@@ -42,7 +42,7 @@ export const saveGameToStorage = async (data: SaveData): Promise<void> => {
         
         // If successful, attempt to clear the old localStorage key to free up space/avoid confusion
         try {
-            localStorage.removeItem(JRPG_SAVE_KEY); 
+            localStorage.removeItem(RPG_SAVE_KEY); 
         } catch (e) { /* ignore */ }
 
     } catch (idbError) {
@@ -51,7 +51,7 @@ export const saveGameToStorage = async (data: SaveData): Promise<void> => {
         // This might fail if the map image is too big, but it's a last resort.
         try {
             const json = JSON.stringify(data);
-            localStorage.setItem(JRPG_SAVE_KEY, json);
+            localStorage.setItem(RPG_SAVE_KEY, json);
         } catch (lsError) {
             console.error("LocalStorage save failed.", lsError);
             throw new Error("Failed to save game. Storage quota exceeded.");
@@ -66,7 +66,7 @@ export const loadGameFromStorage = async (): Promise<SaveData | null> => {
         const idbData = await new Promise<SaveData | undefined>((resolve, reject) => {
             const transaction = db.transaction(STORE_NAME, 'readonly');
             const store = transaction.objectStore(STORE_NAME);
-            const request = store.get(JRPG_SAVE_KEY);
+            const request = store.get(RPG_SAVE_KEY);
             request.onerror = () => reject(request.error);
             request.onsuccess = () => resolve(request.result);
         });
@@ -77,7 +77,7 @@ export const loadGameFromStorage = async (): Promise<SaveData | null> => {
     }
 
     // 2. Check LocalStorage (Migration path / Fallback)
-    const localData = localStorage.getItem(JRPG_SAVE_KEY);
+    const localData = localStorage.getItem(RPG_SAVE_KEY);
     if (localData) {
         try {
             return JSON.parse(localData) as SaveData;
@@ -94,7 +94,7 @@ export const checkSaveExists = async (): Promise<boolean> => {
         const count = await new Promise<number>((resolve, reject) => {
             const transaction = db.transaction(STORE_NAME, 'readonly');
             const store = transaction.objectStore(STORE_NAME);
-            const request = store.count(JRPG_SAVE_KEY);
+            const request = store.count(RPG_SAVE_KEY);
             request.onerror = () => reject(request.error);
             request.onsuccess = () => resolve(request.result);
         });
@@ -102,5 +102,5 @@ export const checkSaveExists = async (): Promise<boolean> => {
     } catch (e) { /* Ignore IDB errors during check */ }
     
     // Check local storage as well
-    return !!localStorage.getItem(JRPG_SAVE_KEY);
+    return !!localStorage.getItem(RPG_SAVE_KEY);
 };

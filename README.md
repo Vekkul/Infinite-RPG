@@ -1,7 +1,7 @@
 
-# Infinite JRPG
+# Infinite RPG
 
-Embark on a never-ending adventure in a world crafted by AI. Explore, battle, and become a legend in a JRPG that's different every time you play. Powered by Google's Gemini, this project showcases a unique, procedurally generated gaming experience right in your browser.
+Embark on a never-ending adventure in a world crafted by AI. Explore, battle, and become a legend in an RPG that's different every time you play. Powered by Google's Gemini, this project showcases a unique, procedurally generated gaming experience right in your browser.
 
 ## ✨ Features
 
@@ -10,14 +10,14 @@ Embark on a never-ending adventure in a world crafted by AI. Explore, battle, an
 *   **Immersive Audio**: Listen to the story unfold with **AI Text-to-Speech** narration powered by Gemini, bringing a dungeon master's voice to your adventure.
 *   **Endless Exploration & Story**: Every location you visit has a unique, AI-generated description and set of actions. Uncover new scenarios, find hidden items, and stumble upon unexpected events. No two adventures are the same!
 *   **AI-Powered Character Creation**: Bring your hero to life! Describe your character's appearance, choose a class, and the AI will generate a unique 16-bit pixel art portrait.
-*   **Deep, Tactical JRPG Combat**: Engage in classic turn-based battles against a bestiary of AI-generated monsters.
+*   **Deep, Tactical RPG Combat**: Engage in classic turn-based battles against a bestiary of AI-generated monsters.
     *   **Class Abilities**: Go beyond basic attacks! Warriors can unleash an **Earthen Strike**, Mages can cast **Fireball** or **Ice Shard**, and Rogues can perform a **Lightning Strike**.
     *   **Advanced Enemy AI**: Face foes with unique abilities (Heal, Shield, Drain Life) and distinct combat personalities (Aggressive, Defensive, Strategic, Wild).
     *   **Status Effects**: Manage tactical conditions like Burn, Chill, Shock, and Grounded.
 *   **Dynamic Social Encounters**: Not every problem is solved with a sword. Navigate AI-generated social scenarios, make choices, and face the consequences, earning unique rewards (XP, Items, or Quests) along the way.
 *   **Robust Character Progression**: Choose from three classes: the sturdy **Warrior**, the powerful **Mage**, or the nimble **Rogue**. Level up, increase your stats, and find powerful loot to grow stronger.
 *   **Optimized Save System**: Your epic journey and all generated assets are saved locally using **IndexedDB**, ensuring fast load times and no data loss.
-*   **Retro Aesthetics**: Toggle a CRT scanline effect in the settings for that authentic 90s JRPG feel.
+*   **Retro Aesthetics**: Toggle a CRT scanline effect in the settings for that authentic 90s RPG feel.
 
 ## 🎮 How to Play
 

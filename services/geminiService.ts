@@ -12,7 +12,7 @@ const TEXT_MODEL = 'gemini-3-flash-preview';
 const IMAGE_MODEL = 'gemini-2.5-flash-image';
 const TTS_MODEL = 'gemini-2.5-flash-preview-tts';
 
-const SYSTEM_INSTRUCTION = "You are a fantasy JRPG dungeon master. Be creative, engaging, and concise. Responses must strictly adhere to the provided JSON schema.";
+const SYSTEM_INSTRUCTION = "You are a fantasy RPG dungeon master. Be creative, engaging, and concise. Responses must strictly adhere to the provided JSON schema.";
 
 // --- Schemas (Kept as is for brevity, assume they exist) ---
 const questSchema = {
@@ -54,7 +54,7 @@ const sceneSchema = {
     properties: {
         description: {
             type: Type.STRING,
-            description: "A vivid JRPG description of the location. Max 60 words.",
+            description: "A vivid RPG description of the location. Max 60 words.",
         },
         localActions: {
             type: Type.ARRAY,
@@ -483,7 +483,7 @@ export const generateCharacterPortrait = async (description: string, className: 
             contents: {
                 parts: [
                     {
-                        text: `16-bit pixel art portrait, JRPG character. Class: ${className}. Description: ${description}. Head and shoulders.`,
+                        text: `16-bit pixel art portrait, RPG character. Class: ${className}. Description: ${description}. Head and shoulders.`,
                     },
                 ],
             },
@@ -515,7 +515,7 @@ export const generateWorldData = async (): Promise<WorldData | null> => {
             contents: {
                 parts: [
                     {
-                        text: `Top-down 16-bit pixel art JRPG world map. Forests, mountains, castle, coast. NO TEXT, NO LABELS.`,
+                        text: `Top-down 16-bit pixel art RPG world map. Forests, mountains, castle, coast. NO TEXT, NO LABELS.`,
                     },
                 ],
             },

@@ -1,5 +1,5 @@
 
-const DB_NAME = 'InfiniteJRPG_Assets';
+const DB_NAME = 'InfiniteRPG_Assets';
 const STORE_NAME = 'assets';
 const DB_VERSION = 1;
 
