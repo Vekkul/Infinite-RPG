@@ -227,12 +227,26 @@ export interface WorldData {
 }
 
 export interface SaveData {
+    version: number;
+    timestamp: number;
+    id: string; // Slot ID
     player: Player;
     storyText: string;
     actions: GameAction[];
     log: string[];
     worldData: WorldData;
     playerLocationId: string;
+}
+
+export interface SaveMetadata {
+    id: string;
+    timestamp: number;
+    version: number;
+    playerName: string;
+    playerLevel: number;
+    playerClass: string;
+    locationName: string;
+    isAutoSave: boolean;
 }
 
 // --- App Settings ---

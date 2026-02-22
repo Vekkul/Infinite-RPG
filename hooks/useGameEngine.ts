@@ -2,7 +2,7 @@
 import { useReducer, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { GameState, Item, ItemType, SaveData, EnemyAbility, SocialChoice, AIPersonality, PlayerAbility, Element, StatusEffectType, StatusEffect, GameAction, Enemy, SocialEncounter, EquipmentSlot, EventPopup, Recipe, Attributes } from '../types';
 import { generateScene, generateEncounter, generateWorldData, generateExploreResult, generateImproviseResult } from '../services/geminiService';
-import { saveGameToStorage, loadGameFromStorage, checkSaveExists } from '../services/storageService';
+import { saveGameToStorage, loadGameFromStorage, checkSaveExists, getLatestSaveMetadata, listSaves, deleteSave } from '../services/storageService';
 import { reducer } from '../state/reducer';
 import { initialState } from '../state/initialState';
 import { CRIT_CHANCE, CRIT_MULTIPLIER, FLEE_CHANCE, TRAVEL_ENCOUNTER_CHANCE, STATUS_EFFECT_CONFIG, ENEMY_STATUS_CHANCE, ENEMY_STATUS_MAP } from '../constants';
@@ -13,6 +13,8 @@ export const useGameEngine = () => {
 
     // --- UI/Transient State maintained by Engine ---
     const [saveFileExists, setSaveFileExists] = useState(false);
+    const [latestSaveMeta, setLatestSaveMeta] = useState<any>(null);
+    const [availableSaves, setAvailableSaves] = useState<any[]>([]);
     const [showLevelUp, setShowLevelUp] = useState(false);
     const [eventPopups, setEventPopups] = useState<EventPopup[]>([]);
     const [isSaving, setIsSaving] = useState(false);
@@ -38,8 +40,15 @@ export const useGameEngine = () => {
     // Check Save on Mount
     useEffect(() => {
         const check = async () => {
-            const exists = await checkSaveExists();
-            setSaveFileExists(exists);
+            const latest = await getLatestSaveMetadata();
+            const saves = await listSaves();
+            setAvailableSaves(saves);
+            if (latest) {
+                setSaveFileExists(true);
+                setLatestSaveMeta(latest);
+            } else {
+                setSaveFileExists(false);
+            }
         };
         check();
     }, []);
@@ -118,13 +127,15 @@ export const useGameEngine = () => {
 
     }, [handleFoundItem, appendToLog, handleFallback]);
 
-    const saveGame = useCallback(async () => {
+    const saveGame = useCallback(async (slotIdOrEvent?: string | React.SyntheticEvent) => {
+        const slotId = typeof slotIdOrEvent === 'string' ? slotIdOrEvent : 'manual_1';
+
         if (!worldData || !playerLocationId) {
             createEventPopup("Cannot save: Invalid state", 'info');
             return;
         }
         
-        const saveData: SaveData = { 
+        const saveData = { 
             player: state.player, 
             storyText: state.storyText, 
             actions: state.actions, 
@@ -135,10 +146,23 @@ export const useGameEngine = () => {
         
         setIsSaving(true);
         try {
-            await saveGameToStorage(saveData);
-            setSaveFileExists(true);
-            appendToLog('Game Saved!');
-            createEventPopup('Game Saved!', 'info');
+            await saveGameToStorage(saveData, slotId);
+            if (slotId.startsWith('manual')) {
+                setSaveFileExists(true);
+                // Update local metadata state so "Load Game" uses this new save if we return to title
+                setLatestSaveMeta({
+                    id: slotId,
+                    timestamp: Date.now(),
+                    version: 1, 
+                    playerName: state.player.name,
+                    playerLevel: state.player.level,
+                    playerClass: state.player.className,
+                    locationName: worldData.locations.find(l => l.id === playerLocationId)?.name || 'Unknown',
+                    isAutoSave: false
+                });
+                appendToLog('Game Saved!');
+                createEventPopup('Game Saved!', 'info');
+            }
         } catch (e) {
             console.error("Save failed", e);
             createEventPopup('Save Failed!', 'info');
@@ -148,10 +172,23 @@ export const useGameEngine = () => {
         }
     }, [state, worldData, playerLocationId, appendToLog, createEventPopup]);
 
-    const loadGame = useCallback(async () => {
+    // Auto-Save Trigger
+    useEffect(() => {
+        if (gameState === GameState.EXPLORING && worldData && playerLocationId) {
+            const timer = setTimeout(() => {
+                saveGame('auto_1');
+            }, 2000); // Debounce auto-save 2s after settling in EXPLORING state
+            return () => clearTimeout(timer);
+        }
+    }, [gameState, playerLocationId, player.level, player.journal.quests, saveGame, worldData]);
+
+    const loadGame = useCallback(async (slotIdOrEvent?: string | React.SyntheticEvent) => {
+        const slotId = typeof slotIdOrEvent === 'string' ? slotIdOrEvent : undefined;
+
         dispatch({ type: 'SET_GAME_STATE', payload: GameState.LOADING });
         try {
-            const savedData = await loadGameFromStorage();
+            const targetSlot = slotId || (latestSaveMeta ? latestSaveMeta.id : 'manual_1');
+            const savedData = await loadGameFromStorage(targetSlot);
             if (savedData) {
                 if (!savedData.player || !savedData.worldData || !savedData.playerLocationId) {
                     throw new Error("Invalid save file structure");
@@ -167,7 +204,7 @@ export const useGameEngine = () => {
             createEventPopup('Load Failed!', 'info');
             dispatch({ type: 'SET_GAME_STATE', payload: GameState.START_SCREEN });
         }
-    }, [appendToLog, createEventPopup]);
+    }, [appendToLog, createEventPopup, latestSaveMeta]);
 
     const handleImprovise = useCallback(async (input: string) => {
         if (!input.trim()) return;
@@ -767,6 +804,15 @@ export const useGameEngine = () => {
     }, [state.isPlayerTurn, enemies, gameState, player, createEventPopup, appendToLog, loadSceneForCurrentLocation]);
 
 
+    const deleteSaveHandler = useCallback(async (slotId: string) => {
+        await deleteSave(slotId);
+        const saves = await listSaves();
+        setAvailableSaves(saves);
+        const latest = await getLatestSaveMetadata();
+        setLatestSaveMeta(latest);
+        setSaveFileExists(!!latest);
+    }, []);
+
     // Computed Values
     const currentSceneActions = useMemo(() => {
         if (!worldData || !playerLocationId) return actions;
@@ -804,6 +850,8 @@ export const useGameEngine = () => {
         },
         ui: {
             saveFileExists,
+            latestSaveMeta,
+            availableSaves,
             showLevelUp,
             eventPopups,
             isSaving
@@ -812,6 +860,7 @@ export const useGameEngine = () => {
             startNewGame,
             loadGame,
             saveGame,
+            deleteSave: deleteSaveHandler,
             handleCharacterCreation,
             handleAction,
             handleImprovise,

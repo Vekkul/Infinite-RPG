@@ -240,7 +240,7 @@ export const generateExploreResult = async (player: Player, action: GameAction):
         const context = getContextString(player);
         const response = await callWithRetry<GenerateContentResponse>(() => getAi().models.generateContent({
             model: TEXT_MODEL,
-            contents: `${context} Action: "${action.label}". Generate result. If EXPLORATION, describe scene. If SOCIAL/COMBAT, lead-in text. Update quests if applicable.`,
+            contents: `${context} Action: "${action.label}". Generate result. Favor EXPLORATION unless the action is explicitly risky or the area is known to be dangerous. If EXPLORATION, describe scene. If SOCIAL/COMBAT, lead-in text. Update quests if applicable.`,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: "application/json",

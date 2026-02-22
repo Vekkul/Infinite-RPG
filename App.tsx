@@ -148,7 +148,13 @@ const App: React.FC = () => {
     const renderGameContent = () => {
         switch (gameState) {
             case GameState.START_SCREEN:
-                return <StartScreen onStart={handlers.startNewGame} onLoad={handlers.loadGame} saveFileExists={saveFileExists} />;
+                return <StartScreen 
+                    onStart={handlers.startNewGame} 
+                    onLoad={handlers.loadGame} 
+                    saveFileExists={saveFileExists} 
+                    availableSaves={ui.availableSaves}
+                    onDeleteSave={handlers.deleteSave}
+                />;
             case GameState.CHARACTER_CREATION:
                 return <CharacterCreationScreen onCreate={handlers.handleCharacterCreation} />;
             case GameState.LOADING:
@@ -172,15 +178,15 @@ const App: React.FC = () => {
         }
     };
 
-    const isScreenState = gameState === GameState.START_SCREEN || gameState === GameState.LOADING || gameState === GameState.GAME_OVER || gameState === GameState.CHARACTER_CREATION;
+    const isScreenState = gameState === GameState.START_SCREEN || gameState === GameState.GAME_OVER || gameState === GameState.CHARACTER_CREATION || (gameState === GameState.LOADING && !player.name);
 
     const ActionButtons = React.memo(() => (
         <div className="flex items-center gap-2 w-full max-w-4xl mx-auto overflow-x-auto whitespace-nowrap pb-1 no-scrollbar">
-            {(gameState === GameState.EXPLORING || gameState === GameState.COMBAT) && (
+            {(gameState === GameState.EXPLORING || gameState === GameState.COMBAT || gameState === GameState.SOCIAL_ENCOUNTER || gameState === GameState.LOADING) && (
                 <button 
                     onClick={() => setIsInventoryOpen(true)} 
                     className="flex-shrink-0 flex items-center justify-center bg-purple-700 hover:bg-purple-600 disabled:opacity-50 text-white p-3 rounded-lg border-2 border-purple-500 active:scale-95 transition-all w-14 h-14"
-                    disabled={!isPlayerTurn && gameState === GameState.COMBAT}
+                    disabled={(!isPlayerTurn && gameState === GameState.COMBAT) || gameState === GameState.LOADING}
                 >
                     <BagIcon className="w-6 h-6" />
                 </button>
@@ -197,17 +203,18 @@ const App: React.FC = () => {
             >
                 <BookIcon className="w-6 h-6"/>
             </button>
-            {gameState === GameState.EXPLORING && (
+            {(gameState === GameState.EXPLORING || gameState === GameState.LOADING) && (
                 <>
                     <button 
                         onClick={() => setIsMapOpen(true)} 
                         className="flex-shrink-0 flex items-center justify-center bg-teal-700 hover:bg-teal-600 text-white p-3 rounded-lg border-2 border-teal-500 active:scale-95 transition-all w-14 h-14"
+                        disabled={gameState === GameState.LOADING}
                     >
                         <MapIcon className="w-6 h-6"/>
                     </button>
                     <button 
                         onClick={handlers.saveGame} 
-                        disabled={isSaving}
+                        disabled={isSaving || gameState === GameState.LOADING}
                         className={`flex-shrink-0 flex items-center justify-center p-3 rounded-lg border-2 active:scale-95 transition-all w-14 h-14 ${isSaving ? 'bg-green-600 border-green-400 opacity-80 cursor-not-allowed' : 'bg-indigo-700 hover:bg-indigo-600 border-indigo-500 text-white'}`}
                     >
                         {isSaving ? <span className="text-xs font-bold animate-pulse">...</span> : <SaveIcon className="w-6 h-6" />}
