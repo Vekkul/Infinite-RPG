@@ -9,14 +9,15 @@ Embark on a never-ending adventure in a world crafted by AI. Explore, battle, an
 *   **Context-Aware Narrative**: A sophisticated **Journal System** tracks your quests and hidden narrative "flags". The AI remembers your actions—whether you stole an apple or saved a king—ensuring that your choices have long-term consequences on future events.
 *   **Immersive Audio**: Listen to the story unfold with **AI Text-to-Speech** narration powered by Gemini, bringing a dungeon master's voice to your adventure.
 *   **Endless Exploration & Story**: Every location you visit has a unique, AI-generated description and set of actions. Uncover new scenarios, find hidden items, and stumble upon unexpected events. No two adventures are the same!
-*   **AI-Powered Character Creation**: Bring your hero to life! Describe your character's appearance, choose a class, and the AI will generate a unique 16-bit pixel art portrait.
+*   **AI-Powered Character Creation**: Bring your hero to life! Describe your character's appearance, define a class, and the AI will generate a unique 16-bit pixel art portrait.
 *   **Deep, Tactical RPG Combat**: Engage in classic turn-based battles against a bestiary of AI-generated monsters.
-    *   **Class Abilities**: Go beyond basic attacks! Warriors can unleash an **Earthen Strike**, Mages can cast **Fireball** or **Ice Shard**, and Rogues can perform a **Lightning Strike**.
+    *   **Customizable Abilities**: Mix and match your loadout! Unleash an **Earthen Strike**, cast **Fireball** or **Ice Shard**, perform a **Lightning Strike**, or attempt to **Befriend** your foes.
     *   **Social Combat**: Use the **Befriend** ability to attempt to resolve conflicts peacefully with non-humanoid entities, relying on your **Charisma** and **Luck**.
     *   **Advanced Enemy AI**: Face foes with unique abilities (Heal, Shield, Drain Life) and distinct combat personalities (Aggressive, Defensive, Strategic, Wild).
     *   **Status Effects**: Manage tactical conditions like Burn, Chill, Shock, and Grounded.
 *   **Dynamic Social Encounters**: Not every problem is solved with a sword. Navigate AI-generated social scenarios, make choices, and face the consequences, earning unique rewards (XP, Items, or Quests) along the way.
 *   **Robust Character Progression**: 
+    *   **Class Identity**: Define your own class name and roleplay your way.
     *   **Attributes**: Customize your **Strength**, **Intelligence**, **Agility**, and **Charisma**.
     *   **Luck**: A derived stat that influences critical hits and social success.
     *   **Crafting**: Gather materials and craft powerful potions, weapons, and armor.
@@ -33,9 +34,9 @@ The game is controlled through simple button clicks.
 
 2.  **Create Your Hero**:
     *   Enter a name for your character.
-    *   Choose one of the three classes: Warrior, Mage, or Rogue.
+    *   **Define your Class**: Type in any class name you want (e.g., "Cyber-Paladin", "Hedge Wizard", "Potato Merchant").
     *   **Allocate Attributes**: Distribute points into Strength, Intelligence, Agility, and Charisma to shape your playstyle.
-    *   **Select Abilities**: Choose starting skills like *Fireball* or *Befriend*.
+    *   **Select Abilities**: Choose 2 starting skills from a list of martial and magical abilities.
     *   Write a short description of your character's appearance (e.g., "A grizzled old warrior with a long white beard and a scar over his left eye").
     *   Click `Generate Portrait` and watch the AI create a unique pixel art image for you.
     *   Once you're happy, click `Start Adventure`!
