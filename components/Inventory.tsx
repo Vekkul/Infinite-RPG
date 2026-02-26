@@ -54,10 +54,10 @@ export const Inventory: React.FC<InventoryProps> = ({ isOpen, onClose, inventory
       onClick={onClose}
     >
       <div 
-        className="bg-gray-900 rounded-lg border-4 border-purple-800 shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col"
+        className="bg-gray-900 rounded-lg border-4 border-purple-800 shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
         onClick={e => e.stopPropagation()} // Prevent closing when clicking inside the modal
       >
-        <div className="p-4 border-b-2 border-purple-700 flex justify-between items-center bg-gray-900/90 rounded-t-lg">
+        <div className="p-4 border-b-2 border-purple-700 flex justify-between items-center bg-gray-900/90 rounded-t-lg shrink-0">
           <h2 className="text-3xl font-cinzel font-bold text-purple-300 drop-shadow-sm">Character</h2>
           <button 
             onClick={onClose} 
@@ -68,28 +68,28 @@ export const Inventory: React.FC<InventoryProps> = ({ isOpen, onClose, inventory
           </button>
         </div>
 
-        <div className="flex border-b border-gray-600 overflow-x-auto bg-gray-800">
+        <div className="flex border-b border-gray-600 overflow-x-auto bg-gray-800 shrink-0">
             <button 
-                className={`flex-1 py-3 font-cinzel font-bold text-lg min-w-[100px] transition-colors ${activeTab === 'bag' ? 'bg-gray-700 text-purple-100 border-b-4 border-purple-500' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                className={`flex-1 py-3 font-cinzel font-bold text-lg min-w-[100px] transition-colors border-b-4 ${activeTab === 'bag' ? 'bg-gray-700 text-purple-100 border-purple-500' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 border-transparent'}`}
                 onClick={() => setActiveTab('bag')}
             >
                 Bag
             </button>
             <button 
-                className={`flex-1 py-3 font-cinzel font-bold text-lg min-w-[100px] transition-colors ${activeTab === 'equipment' ? 'bg-gray-700 text-purple-100 border-b-4 border-purple-500' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                className={`flex-1 py-3 font-cinzel font-bold text-lg min-w-[100px] transition-colors border-b-4 ${activeTab === 'equipment' ? 'bg-gray-700 text-purple-100 border-purple-500' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 border-transparent'}`}
                 onClick={() => setActiveTab('equipment')}
             >
                 Stats
             </button>
             <button 
-                className={`flex-1 py-3 font-cinzel font-bold text-lg min-w-[100px] transition-colors ${activeTab === 'crafting' ? 'bg-gray-700 text-purple-100 border-b-4 border-purple-500' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                className={`flex-1 py-3 font-cinzel font-bold text-lg min-w-[100px] transition-colors border-b-4 ${activeTab === 'crafting' ? 'bg-gray-700 text-purple-100 border-purple-500' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 border-transparent'}`}
                 onClick={() => setActiveTab('crafting')}
             >
                 Crafting
             </button>
         </div>
 
-        <div className="p-6 overflow-y-auto bg-gray-800/90 flex-grow font-serif">
+        <div className="p-6 overflow-y-auto bg-gray-800/90 flex-grow font-serif min-h-0">
           {activeTab === 'bag' && (
               <>
                 {inventory.length === 0 ? (
@@ -143,7 +143,7 @@ export const Inventory: React.FC<InventoryProps> = ({ isOpen, onClose, inventory
                   {/* Attributes Section */}
                   <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700/50">
                       <h3 className="text-sm font-bold font-cinzel text-gray-400 uppercase mb-4 text-center border-b border-gray-700 pb-2 tracking-widest">Attributes</h3>
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-2 gap-4">
                           <div className="text-center p-3 bg-gray-800/80 rounded border border-gray-700/50">
                               <p className="text-xs text-orange-400 font-bold uppercase mb-1 tracking-wider" title="Strength">STR</p>
                               <p className="text-3xl font-bold text-white">{player.attributes.strength}</p>
@@ -156,10 +156,14 @@ export const Inventory: React.FC<InventoryProps> = ({ isOpen, onClose, inventory
                               <p className="text-xs text-green-400 font-bold uppercase mb-1 tracking-wider" title="Agility">AGI</p>
                               <p className="text-3xl font-bold text-white">{player.attributes.agility}</p>
                           </div>
+                          <div className="text-center p-3 bg-gray-800/80 rounded border border-gray-700/50">
+                              <p className="text-xs text-purple-400 font-bold uppercase mb-1 tracking-wider" title="Charisma">CHA</p>
+                              <p className="text-3xl font-bold text-white">{player.attributes.charisma}</p>
+                          </div>
                       </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 bg-gray-900/50 p-4 rounded-lg border border-gray-700/50">
+                  <div className="grid grid-cols-3 gap-4 bg-gray-900/50 p-4 rounded-lg border border-gray-700/50">
                       <div className="text-center">
                           <p className="text-gray-400 uppercase text-xs font-bold tracking-wider mb-1">Total Attack</p>
                           <p className="text-4xl font-cinzel font-bold text-red-400 drop-shadow-sm">{player.attack}</p>
@@ -167,6 +171,10 @@ export const Inventory: React.FC<InventoryProps> = ({ isOpen, onClose, inventory
                       <div className="text-center">
                           <p className="text-gray-400 uppercase text-xs font-bold tracking-wider mb-1">Total Defense</p>
                           <p className="text-4xl font-cinzel font-bold text-blue-400 drop-shadow-sm">{player.defense}</p>
+                      </div>
+                      <div className="text-center">
+                          <p className="text-gray-400 uppercase text-xs font-bold tracking-wider mb-1">Luck</p>
+                          <p className="text-4xl font-cinzel font-bold text-yellow-400 drop-shadow-sm">{player.luck}</p>
                       </div>
                   </div>
 

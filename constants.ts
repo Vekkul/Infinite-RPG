@@ -10,7 +10,8 @@ export const INITIAL_PLAYER_STATS: Player = {
   attributes: {
       strength: 5,
       intelligence: 5,
-      agility: 5
+      agility: 5,
+      charisma: 5
   },
   hp: 50,
   maxHp: 50,
@@ -22,6 +23,7 @@ export const INITIAL_PLAYER_STATS: Player = {
   maxSp: 20,
   attack: 10,
   defense: 1, 
+  luck: 5,
   level: 1,
   xp: 0,
   xpToNextLevel: 100,
@@ -48,9 +50,19 @@ export interface AbilityDetails {
     statusEffect?: StatusEffectType;
     statusChance?: number;
     healAmount?: number; // Multiplier of INT
+    isSocial?: boolean; // New flag for social/befriend abilities
 }
 
 export const PLAYER_ABILITIES: Record<PlayerAbility, AbilityDetails> = {
+    [PlayerAbility.BEFRIEND]: {
+        name: PlayerAbility.BEFRIEND,
+        cost: 10,
+        resource: 'EP',
+        description: 'Attempt to befriend a non-humanoid entity. Success depends on Luck.',
+        element: Element.NONE,
+        damageMultiplier: 0,
+        isSocial: true
+    },
     [PlayerAbility.EARTHEN_STRIKE]: {
         name: PlayerAbility.EARTHEN_STRIKE,
         cost: 12,

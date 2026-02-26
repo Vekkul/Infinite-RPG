@@ -163,6 +163,7 @@ export const CombatView: React.FC<CombatViewProps> = ({ storyText, enemies, play
                     else if (details.element === Element.EARTH) colorClass = "bg-amber-800 border-amber-600 hover:bg-amber-700";
                     else if (details.element === Element.LIGHTNING) colorClass = "bg-indigo-700 border-indigo-500 hover:bg-indigo-600";
                     else if (details.healAmount) colorClass = "bg-green-700 border-green-500 hover:bg-green-600";
+                    else if (details.isSocial) colorClass = "bg-pink-700 border-pink-500 hover:bg-pink-600";
 
                     return (
                         <button 

@@ -25,13 +25,14 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
     const [attributes, setAttributes] = useState<Attributes>({
         strength: BASE_STAT,
         intelligence: BASE_STAT,
-        agility: BASE_STAT
+        agility: BASE_STAT,
+        charisma: BASE_STAT
     });
 
     // Abilities
     const [selectedAbilities, setSelectedAbilities] = useState<PlayerAbility[]>([]);
 
-    const remainingPoints = TOTAL_POINTS - (attributes.strength + attributes.intelligence + attributes.agility - (BASE_STAT * 3));
+    const remainingPoints = TOTAL_POINTS - (attributes.strength + attributes.intelligence + attributes.agility + attributes.charisma - (BASE_STAT * 4));
 
     // Use hook to resolve the ID to a URL
     const { assetUrl } = useAsset(portraitId);
@@ -169,6 +170,7 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
                             {renderStatRow("Strength", "strength", "Increases HP, Stamina, and Attack")}
                             {renderStatRow("Intelligence", "intelligence", "Increases MP and Magic Power")}
                             {renderStatRow("Agility", "agility", "Increases Energy, Defense, and Crit")}
+                            {renderStatRow("Charisma", "charisma", "Increases Luck and Social Success")}
                         </div>
                     </div>
 

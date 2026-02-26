@@ -219,10 +219,13 @@ export const useGameEngine = () => {
 
         appendToLog(result.description);
         
+        // Add to narrative history for continuity
+        dispatch({ type: 'ADD_NARRATIVE_HISTORY', payload: `Improvised: "${input}" -> ${result.description}` });
+
         if (result.questUpdate) {
              const quest = player.journal.quests.find(q => q.id === result.questUpdate?.questId);
              if (quest) {
-                dispatch({ type: 'UPDATE_QUEST_STATUS', payload: { id: result.questUpdate.questId, status: result.questUpdate.status } });
+                dispatch({ type: 'UPDATE_QUEST_STATUS', payload: { questId: result.questUpdate.questId, status: result.questUpdate.status, outcome: result.questUpdate.outcome, rewardText: result.questUpdate.rewardText } });
                 dispatch({ type: 'ADD_NARRATIVE_HISTORY', payload: `Quest ${result.questUpdate.status}: ${quest.title}` });
                 createEventPopup(`Quest ${result.questUpdate.status === 'COMPLETED' ? 'Complete' : 'Failed'}: ${quest.title}`, 'quest');
              }
@@ -299,10 +302,13 @@ export const useGameEngine = () => {
     
             appendToLog(result.description);
             
+            // Add to narrative history for continuity
+            dispatch({ type: 'ADD_NARRATIVE_HISTORY', payload: `Action: "${action.label}" -> ${result.description}` });
+            
             if (result.questUpdate) {
                 const quest = player.journal.quests.find(q => q.id === result.questUpdate?.questId);
                 if (quest) {
-                    dispatch({ type: 'UPDATE_QUEST_STATUS', payload: { id: result.questUpdate.questId, status: result.questUpdate.status } });
+                    dispatch({ type: 'UPDATE_QUEST_STATUS', payload: { questId: result.questUpdate.questId, status: result.questUpdate.status, outcome: result.questUpdate.outcome, rewardText: result.questUpdate.rewardText } });
                     dispatch({ type: 'ADD_NARRATIVE_HISTORY', payload: `Quest ${result.questUpdate.status}: ${quest.title}` });
                     createEventPopup(`Quest ${result.questUpdate.status === 'COMPLETED' ? 'Complete' : 'Failed'}: ${quest.title}`, 'quest');
                 }

@@ -67,7 +67,8 @@ export enum PlayerAbility {
     HEAL = 'Heal',
     POWER_SLASH = 'Power Slash',
     QUICK_STAB = 'Quick Stab',
-    ARCANE_BLAST = 'Arcane Blast'
+    ARCANE_BLAST = 'Arcane Blast',
+    BEFRIEND = 'Befriend'
 }
 
 export interface Item {
@@ -100,6 +101,9 @@ export interface Quest {
     title: string;
     description: string;
     status: 'ACTIVE' | 'COMPLETED' | 'FAILED';
+    giver?: string;
+    rewardText?: string;
+    outcome?: string;
 }
 
 export interface PlayerJournal {
@@ -113,6 +117,7 @@ export interface Attributes {
     strength: number; // HP & SP & Attack
     intelligence: number; // MP & Magic Attack
     agility: number; // EP & Defense/Crit
+    charisma: number; // Luck & Social Success
 }
 
 export interface Player {
@@ -135,6 +140,7 @@ export interface Player {
   
   attack: number;
   defense: number; 
+  luck: number;
   
   level: number;
   xp: number;
@@ -189,6 +195,8 @@ export interface Reward {
 export interface QuestUpdate {
     questId: string;
     status: 'COMPLETED' | 'FAILED';
+    outcome?: string;
+    rewardText?: string;
 }
 
 export interface SocialChoice {
@@ -309,7 +317,7 @@ export type Action =
   | { type: 'PROCESS_TURN_EFFECTS'; payload: { target: 'player' | 'enemy'; index?: number } }
   | { type: 'APPLY_STATUS_EFFECT'; payload: { target: 'player' | 'enemy'; index?: number; effect: StatusEffect } }
   | { type: 'ADD_QUEST'; payload: Quest }
-  | { type: 'UPDATE_QUEST_STATUS'; payload: { id: string; status: Quest['status'] } }
+  | { type: 'UPDATE_QUEST_STATUS'; payload: QuestUpdate }
   | { type: 'ADD_JOURNAL_FLAG'; payload: string }
   | { type: 'ADD_NARRATIVE_HISTORY'; payload: string } // New Action
   | { type: 'SAVE_SCENE_STATE' }

@@ -21,7 +21,9 @@ const questSchema = {
         id: { type: Type.STRING, description: "A unique, short ID for the quest (e.g., 'find_lost_cat')." },
         title: { type: Type.STRING, description: "The title of the quest." },
         description: { type: Type.STRING, description: "A brief description of what the player needs to do." },
-        status: { type: Type.STRING, enum: ['ACTIVE'], description: "Initial status." }
+        status: { type: Type.STRING, enum: ['ACTIVE'], description: "Initial status." },
+        giver: { type: Type.STRING, description: "Who gave the quest (e.g., 'Village Elder')." },
+        rewardText: { type: Type.STRING, description: "Description of the promised reward." }
     },
     required: ["id", "title", "description", "status"]
 };
@@ -30,7 +32,9 @@ const questUpdateSchema = {
     type: Type.OBJECT,
     properties: {
         questId: { type: Type.STRING, description: "The ID of the quest to update. MUST match an ID from the context." },
-        status: { type: Type.STRING, enum: ['COMPLETED', 'FAILED'], description: "The new status of the quest." }
+        status: { type: Type.STRING, enum: ['COMPLETED', 'FAILED'], description: "The new status of the quest." },
+        outcome: { type: Type.STRING, description: "A brief summary of how the quest ended." },
+        rewardText: { type: Type.STRING, description: "Description of the actual reward received." }
     },
     required: ["questId", "status"]
 };
@@ -43,7 +47,7 @@ const itemSchema = {
         type: { type: Type.STRING, enum: [ItemType.POTION, ItemType.WEAPON, ItemType.ARMOR, ItemType.KEY_ITEM, ItemType.MATERIAL], description: "Item type." },
         value: { type: Type.INTEGER, description: "Value/Potency." },
         stackLimit: { type: Type.INTEGER, description: "Max stack."},
-        slot: { type: Type.STRING, enum: [EquipmentSlot.MAIN_HAND, EquipmentSlot.BODY], description: "Equip slot (optional)."},
+        slot: { type: Type.STRING, enum: [EquipmentSlot.MAIN_HAND, EquipmentSlot.BODY], description: "Equip slot. REQUIRED for WEAPON/ARMOR."},
         traits: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Tags."}
     },
     required: ["name", "description", "type", "value", "stackLimit"]
@@ -224,7 +228,9 @@ const getContextString = (player: Player) => {
     
     // Inject the Narrative History chain
     if (player.journal.history && player.journal.history.length > 0) {
-        context += ` Story So Far: ${player.journal.history.join(' -> ')}.`;
+        // Limit to last 6 events for relevance
+        const recentHistory = player.journal.history.slice(-6);
+        context += ` Recent Events: ${recentHistory.join(' -> ')}.`;
     }
 
     if (player.journal.flags.length > 0) {

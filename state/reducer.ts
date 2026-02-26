@@ -45,7 +45,7 @@ const removeItemFromInventory = (inventory: Item[], itemName: string, quantityTo
 
 // Dynamic Stat Calculation based on Attributes
 const calculatePlayerDerivedStats = (player: Player): Partial<Player> => {
-    const { strength, intelligence, agility } = player.attributes;
+    const { strength, intelligence, agility, charisma } = player.attributes;
     const level = player.level;
 
     // Base Formulas
@@ -67,6 +67,9 @@ const calculatePlayerDerivedStats = (player: Player): Partial<Player> => {
     // Defense: AGI * 0.5
     let defense = Math.floor(agility * 0.5);
 
+    // Luck: Charisma * 1
+    let luck = Math.floor(charisma);
+
     // Add Equipment Stats
     if (player.equipment[EquipmentSlot.MAIN_HAND]) {
         attack += player.equipment[EquipmentSlot.MAIN_HAND]?.value || 0;
@@ -76,7 +79,7 @@ const calculatePlayerDerivedStats = (player: Player): Partial<Player> => {
     }
 
     return { 
-        maxHp, maxMp, maxSp, maxEp, attack, defense, 
+        maxHp, maxMp, maxSp, maxEp, attack, defense, luck,
         hp: player.hp > maxHp ? maxHp : player.hp, // Clamp logic usually handled elsewhere, but safe to default
         mp: player.mp > maxMp ? maxMp : player.mp,
         sp: player.sp > maxSp ? maxSp : player.sp,
@@ -94,6 +97,7 @@ const handleLevelUp = (currentPlayer: Player): { updatedPlayer: Player; logs: st
         strength: currentPlayer.attributes.strength + 1,
         intelligence: currentPlayer.attributes.intelligence + 1,
         agility: currentPlayer.attributes.agility + 1,
+        charisma: currentPlayer.attributes.charisma + 1,
     };
 
     let tempPlayer: Player = {
@@ -118,7 +122,7 @@ const handleLevelUp = (currentPlayer: Player): { updatedPlayer: Player; logs: st
 
     const logs = [
         `LEVEL UP! You are now level ${newLevel}!`,
-        `Your attributes increased! HP, MP, SP, EP, ATK, and DEF have improved.`
+        `Your attributes increased! HP, MP, SP, EP, ATK, DEF, and Luck have improved.`
     ];
 
     return { updatedPlayer, logs };
@@ -278,8 +282,46 @@ export const reducer = (state: AppState, action: Action): AppState => {
             newPlayerState.hp = Math.min(newPlayerState.maxHp, newPlayerState.hp + healVal);
             newLog = appendToLog(newLog, `You cast ${abilityDetails.name} and heal for ${healVal} HP.`);
         } 
+
+        // 3. Handle Special Abilities (Befriend)
+        if (abilityDetails.name === PlayerAbility.BEFRIEND) {
+             const successChance = 0.3 + (state.player.luck * 0.03); // 30% base + 3% per Luck
+             const roll = Math.random();
+             
+             if (roll < successChance) {
+                 newLog = appendToLog(newLog, `You successfully befriended the ${target.name}! It leaves you a gift and departs peacefully.`);
+                 
+                 // Give Loot
+                 if (target.loot) {
+                     newPlayerState.inventory = addItemToInventory(newPlayerState.inventory, target.loot);
+                     newLog = appendToLog(newLog, `The ${target.name} gave you a ${target.loot.name}!`);
+                 }
+                 
+                 // Give XP (Half kill XP?)
+                 const xpGain = Math.floor(target.maxHp / 2);
+                 newPlayerState.xp += xpGain;
+                 newLog = appendToLog(newLog, `You gained ${xpGain} XP.`);
+
+                 // Remove Enemy
+                 newEnemies.splice(targetIndex, 1);
+                 
+                 // Check Level Up immediately
+                 if (newPlayerState.xp >= newPlayerState.xpToNextLevel) {
+                    const { updatedPlayer: leveledUpPlayer, logs: levelUpLogs } = handleLevelUp(newPlayerState);
+                    newPlayerState = leveledUpPlayer;
+                    levelUpLogs.forEach(l => newLog = appendToLog(newLog, l));
+                 }
+
+                 // If all enemies gone, combat ends automatically by GameEngine loop checking enemies length
+             } else {
+                 newLog = appendToLog(newLog, `You failed to befriend the ${target.name}. It seems annoyed!`);
+                 // Penalty: Enemy gets a buff? Or just turn waste.
+                 // Let's make it Enraged (Attack buff)
+                 // We don't have an Enraged status, but we can just say it attacks next turn.
+             }
+        }
         
-        // 3. Apply Damage (Target)
+        // 4. Apply Damage (Target)
         // Only if damageMultiplier > 0, to separate pure buffs from attacks
         if (abilityDetails.damageMultiplier > 0) {
             let damage = Math.floor(state.player.attack * abilityDetails.damageMultiplier + (Math.random() * 5));
@@ -397,19 +439,24 @@ export const reducer = (state: AppState, action: Action): AppState => {
         const itemIndex = action.payload.inventoryIndex;
         const itemToEquip = state.player.inventory[itemIndex];
         
-        if (!itemToEquip.slot) return state;
+        let targetSlot = itemToEquip.slot;
+        if (!targetSlot) {
+            if (itemToEquip.type === ItemType.WEAPON) targetSlot = EquipmentSlot.MAIN_HAND;
+            else if (itemToEquip.type === ItemType.ARMOR) targetSlot = EquipmentSlot.BODY;
+            else return state; // Cannot equip this type
+        }
 
         let newInventory = [...state.player.inventory];
         let newEquipment = { ...state.player.equipment };
         let newLog = [...state.log];
 
-        if (newEquipment[itemToEquip.slot]) {
-            const unequippedItem = newEquipment[itemToEquip.slot]!;
+        if (newEquipment[targetSlot]) {
+            const unequippedItem = newEquipment[targetSlot]!;
             newInventory = addItemToInventory(newInventory, unequippedItem);
             newLog = appendToLog(newLog, `Unequipped ${unequippedItem.name}.`);
         }
 
-        newEquipment[itemToEquip.slot] = { ...itemToEquip, quantity: 1 };
+        newEquipment[targetSlot] = { ...itemToEquip, quantity: 1, slot: targetSlot }; // Ensure slot is set on the item
         newLog = appendToLog(newLog, `Equipped ${itemToEquip.name}.`);
 
         const itemStack = { ...newInventory[itemIndex] };
@@ -584,7 +631,12 @@ export const reducer = (state: AppState, action: Action): AppState => {
              const qIndex = newJournal.quests.findIndex(q => q.id === choice.questUpdate!.questId);
              if (qIndex !== -1) {
                  const updatedQuests = [...newJournal.quests];
-                 updatedQuests[qIndex] = { ...updatedQuests[qIndex], status: choice.questUpdate!.status };
+                 updatedQuests[qIndex] = { 
+                     ...updatedQuests[qIndex], 
+                     status: choice.questUpdate!.status,
+                     outcome: choice.questUpdate!.outcome || choice.outcome,
+                     rewardText: choice.questUpdate!.rewardText
+                 };
                  newJournal.quests = updatedQuests;
                  const statusText = choice.questUpdate!.status === 'COMPLETED' ? 'Completed' : 'Failed';
                  newLog = appendToLog(newLog, `Quest ${statusText}: ${updatedQuests[qIndex].title}`);
@@ -653,10 +705,15 @@ export const reducer = (state: AppState, action: Action): AppState => {
 
     case 'UPDATE_QUEST_STATUS': {
         const newJournal = { ...state.player.journal };
-        const questIndex = newJournal.quests.findIndex(q => q.id === action.payload.id);
+        const questIndex = newJournal.quests.findIndex(q => q.id === action.payload.questId);
         if (questIndex !== -1) {
             const updatedQuests = [...newJournal.quests];
-            updatedQuests[questIndex] = { ...updatedQuests[questIndex], status: action.payload.status };
+            updatedQuests[questIndex] = { 
+                ...updatedQuests[questIndex], 
+                status: action.payload.status,
+                outcome: action.payload.outcome,
+                rewardText: action.payload.rewardText
+            };
             newJournal.quests = updatedQuests;
             
             let logMsg = '';
