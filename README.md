@@ -12,10 +12,14 @@ Embark on a never-ending adventure in a world crafted by AI. Explore, battle, an
 *   **AI-Powered Character Creation**: Bring your hero to life! Describe your character's appearance, choose a class, and the AI will generate a unique 16-bit pixel art portrait.
 *   **Deep, Tactical RPG Combat**: Engage in classic turn-based battles against a bestiary of AI-generated monsters.
     *   **Class Abilities**: Go beyond basic attacks! Warriors can unleash an **Earthen Strike**, Mages can cast **Fireball** or **Ice Shard**, and Rogues can perform a **Lightning Strike**.
+    *   **Social Combat**: Use the **Befriend** ability to attempt to resolve conflicts peacefully with non-humanoid entities, relying on your **Charisma** and **Luck**.
     *   **Advanced Enemy AI**: Face foes with unique abilities (Heal, Shield, Drain Life) and distinct combat personalities (Aggressive, Defensive, Strategic, Wild).
     *   **Status Effects**: Manage tactical conditions like Burn, Chill, Shock, and Grounded.
 *   **Dynamic Social Encounters**: Not every problem is solved with a sword. Navigate AI-generated social scenarios, make choices, and face the consequences, earning unique rewards (XP, Items, or Quests) along the way.
-*   **Robust Character Progression**: Choose from three classes: the sturdy **Warrior**, the powerful **Mage**, or the nimble **Rogue**. Level up, increase your stats, and find powerful loot to grow stronger.
+*   **Robust Character Progression**: 
+    *   **Attributes**: Customize your **Strength**, **Intelligence**, **Agility**, and **Charisma**.
+    *   **Luck**: A derived stat that influences critical hits and social success.
+    *   **Crafting**: Gather materials and craft powerful potions, weapons, and armor.
 *   **Optimized Save System**: Your epic journey and all generated assets are saved locally using **IndexedDB**, ensuring fast load times and no data loss.
 *   **Retro Aesthetics**: Toggle a CRT scanline effect in the settings for that authentic 90s RPG feel.
 
@@ -30,6 +34,8 @@ The game is controlled through simple button clicks.
 2.  **Create Your Hero**:
     *   Enter a name for your character.
     *   Choose one of the three classes: Warrior, Mage, or Rogue.
+    *   **Allocate Attributes**: Distribute points into Strength, Intelligence, Agility, and Charisma to shape your playstyle.
+    *   **Select Abilities**: Choose starting skills like *Fireball* or *Befriend*.
     *   Write a short description of your character's appearance (e.g., "A grizzled old warrior with a long white beard and a scar over his left eye").
     *   Click `Generate Portrait` and watch the AI create a unique pixel art image for you.
     *   Once you're happy, click `Start Adventure`!
@@ -40,17 +46,22 @@ The game is controlled through simple button clicks.
     *   When you arrive at a location, read the AI-generated description of the area.
     *   Choose from the available actions, which can include moving to a new location or performing a local action like "Search the abandoned shack" or "Listen to the wind".
     *   **Improvise**: Type your own custom action into the text box to try anything you can imagine!
-    *   **Check your Journal**: Click the Star icon to view active quests and see the narrative threads you've woven.
+    *   **Check your Journal**: Click the Book icon to view active quests, completed archives, and detailed logs of your journey.
 
 4.  **Engaging in Combat**:
     *   When you encounter enemies, you will enter a turn-based combat screen.
     *   On your turn, choose an action:
         *   **Attack**: Select a target and deal damage.
-        *   **Ability**: Use your class-specific skill for a powerful effect.
+        *   **Ability**: Use your class-specific skill or try to **Befriend** a creature.
         *   **Defend**: Reduce the damage you take from the next enemy attack.
         *   **Inventory**: Open your bag to use items, like a healing potion.
         *   **Flee**: Attempt to escape the battle. Be careful, it might not always work!
     *   Defeat all enemies to win the battle, earn XP, and potentially find loot!
+
+5.  **Inventory & Crafting**:
+    *   Open your inventory to manage items and equipment.
+    *   Visit the **Crafting** tab to combine materials into useful gear and potions.
+    *   Check the **Stats** tab to see your current attributes and equipment bonuses.
 
 ## 🛠️ Tech Stack
 
