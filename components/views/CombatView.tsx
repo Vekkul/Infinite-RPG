@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Enemy, EnemyAbility, Player, PlayerAbility, StatusEffectType, Element, Item } from '../../types';
 import { StatusBar } from '../StatusBar';
 import { HealIcon, ShieldIcon, SwordIcon, RunIcon, FireIcon, BoltIcon, StarIcon } from '../icons';

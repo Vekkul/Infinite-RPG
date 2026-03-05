@@ -83,17 +83,7 @@ export interface Item {
 }
 
 // --- Crafting ---
-export interface Ingredient {
-    name: string;
-    quantity: number;
-}
-
-export interface Recipe {
-    name: string;
-    description: string;
-    ingredients: Ingredient[];
-    result: Omit<Item, 'quantity'>;
-}
+// (Crafting logic is currently handled via combineItems service without explicit Recipe types)
 
 // --- Quest & Journal System ---
 export interface Quest {
@@ -309,7 +299,6 @@ export type Action =
   | { type: 'USE_ITEM'; payload: { inventoryIndex: number } }
   | { type: 'EQUIP_ITEM'; payload: { inventoryIndex: number } }
   | { type: 'UNEQUIP_ITEM'; payload: { slot: EquipmentSlot } }
-  | { type: 'CRAFT_ITEM'; payload: { recipe: Recipe } }
   | { type: 'COMBINE_ITEMS'; payload: { item1Index: number; item2Index: number } }
   | { type: 'ENEMY_ACTION_HEAL'; payload: { enemyIndex: number; healAmount: number } }
   | { type: 'ENEMY_ACTION_DRAIN_LIFE', payload: { enemyIndex: number; damage: number } }

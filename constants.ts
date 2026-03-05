@@ -1,5 +1,5 @@
 
-import { Player, PlayerAbility, Element, StatusEffectType, Recipe, ItemType, EquipmentSlot } from './types';
+import { Player, PlayerAbility, Element, StatusEffectType, ItemType, EquipmentSlot } from './types';
 
 export const RPG_SAVE_KEY = 'rpgSaveDataV1';
 
@@ -175,56 +175,3 @@ export const ENEMY_STATUS_MAP: Record<Element, StatusEffectType> = {
     [Element.EARTH]: StatusEffectType.GROUNDED,
     [Element.NONE]: StatusEffectType.BURN, // Should not happen
 };
-
-export const CRAFTING_RECIPES: Recipe[] = [
-    {
-        name: 'Greater Healing Potion',
-        description: 'A potent brew that heals 50 HP.',
-        ingredients: [{ name: 'Minor Healing Potion', quantity: 2 }],
-        result: {
-            name: 'Greater Healing Potion',
-            description: 'A glowing red potion that radiates warmth.',
-            type: ItemType.POTION,
-            value: 50,
-            stackLimit: 5,
-        }
-    },
-    {
-        name: 'Iron Sword',
-        description: 'A solid blade, better than a rusty one.',
-        ingredients: [{ name: 'Rusty Sword', quantity: 1 }, { name: 'Iron Ore', quantity: 1 }],
-        result: {
-            name: 'Iron Sword',
-            description: 'A reliable iron sword with a sharp edge.',
-            type: ItemType.WEAPON,
-            value: 5,
-            stackLimit: 1,
-            slot: EquipmentSlot.MAIN_HAND
-        }
-    },
-    {
-        name: 'Steel Plate',
-        description: 'Sturdy armor providing good protection.',
-        ingredients: [{ name: 'Leather Armor', quantity: 1 }, { name: 'Iron Ore', quantity: 1 }],
-        result: {
-            name: 'Steel Plate',
-            description: 'Heavy armor reinforced with steel plates.',
-            type: ItemType.ARMOR,
-            value: 5,
-            stackLimit: 1,
-            slot: EquipmentSlot.BODY
-        }
-    },
-    {
-        name: 'Elixir of Vitality',
-        description: 'A rare elixir that fully restores HP.',
-        ingredients: [{ name: 'Greater Healing Potion', quantity: 2 }, { name: 'Magic Dust', quantity: 1 }],
-        result: {
-            name: 'Elixir of Vitality',
-            description: 'A swirling golden liquid.',
-            type: ItemType.POTION,
-            value: 999,
-            stackLimit: 3,
-        }
-    }
-];
