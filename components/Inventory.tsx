@@ -1,8 +1,7 @@
 
 import React, { useState } from 'react';
-import { Item, ItemType, Player, EquipmentSlot, Recipe } from '../types';
+import { Item, ItemType, Player, EquipmentSlot } from '../types';
 import { PotionIcon, SwordIcon, ShieldIcon } from './icons';
-import { CRAFTING_RECIPES } from '../constants';
 
 interface InventoryProps {
   isOpen: boolean;
@@ -12,12 +11,30 @@ interface InventoryProps {
   onUseItem: (item: Item, index: number) => void;
   onEquipItem: (item: Item, index: number) => void;
   onUnequipItem: (slot: EquipmentSlot) => void;
-  onCraftItem: (recipe: Recipe) => void;
+  onCombineItems: (index1: number, index2: number) => void;
   disabled?: boolean;
 }
 
-export const Inventory: React.FC<InventoryProps> = ({ isOpen, onClose, inventory, player, onUseItem, onEquipItem, onUnequipItem, onCraftItem, disabled = false }) => {
+export const Inventory: React.FC<InventoryProps> = ({ isOpen, onClose, inventory, player, onUseItem, onEquipItem, onUnequipItem, onCombineItems, disabled = false }) => {
   const [activeTab, setActiveTab] = useState<'bag' | 'equipment' | 'crafting'>('bag');
+  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
+
+  const toggleSelection = (index: number) => {
+      if (selectedIndices.includes(index)) {
+          setSelectedIndices(prev => prev.filter(i => i !== index));
+      } else {
+          if (selectedIndices.length < 2) {
+              setSelectedIndices(prev => [...prev, index]);
+          }
+      }
+  };
+
+  const handleCombine = () => {
+      if (selectedIndices.length === 2) {
+          onCombineItems(selectedIndices[0], selectedIndices[1]);
+          setSelectedIndices([]);
+      }
+  };
 
   if (!isOpen) {
     return null;
@@ -224,53 +241,92 @@ export const Inventory: React.FC<InventoryProps> = ({ isOpen, onClose, inventory
           )}
 
           {activeTab === 'crafting' && (
-              <div className="space-y-4">
+              <div className="space-y-6">
                   <div className="bg-gray-900/50 p-4 rounded text-center text-sm text-gray-400 italic border border-gray-800">
-                      Collect materials during your adventures to craft powerful items.
+                      Combine two items to discover new creations. Experimentation is key!
                   </div>
-                  {CRAFTING_RECIPES.map((recipe, index) => {
-                      const canCraft = recipe.ingredients.every(ing => countItemQuantity(ing.name) >= ing.quantity);
-                      
-                      return (
-                          <div key={index} className="bg-gray-900/50 p-4 rounded-md border border-gray-700/50 flex flex-col gap-3">
-                              <div className="flex justify-between items-start">
-                                  <div className="flex items-center gap-3">
-                                      <div className="text-yellow-500/80">{renderIcon(recipe.result.type)}</div>
-                                      <div>
-                                          <h3 className="font-bold text-white text-lg">{recipe.result.name}</h3>
-                                          <p className="text-xs text-gray-400 italic">{recipe.result.description}</p>
+
+                  {/* Combination Slots */}
+                  <div className="flex justify-center gap-8 py-4">
+                      {[0, 1].map(slotIndex => {
+                          const itemIndex = selectedIndices[slotIndex];
+                          const item = itemIndex !== undefined ? inventory[itemIndex] : null;
+
+                          return (
+                              <div 
+                                  key={slotIndex}
+                                  className={`w-24 h-24 rounded-lg border-2 flex items-center justify-center relative transition-all cursor-pointer ${
+                                      item ? 'bg-gray-800 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'bg-gray-900/50 border-dashed border-gray-600 hover:border-gray-500'
+                                  }`}
+                                  onClick={() => item && toggleSelection(itemIndex)}
+                              >
+                                  {item ? (
+                                      <div className="text-center">
+                                          <div className="text-purple-400 mb-1 flex justify-center">{renderIcon(item.type)}</div>
+                                          <p className="text-[10px] font-bold text-white px-1 truncate max-w-[80px]">{item.name}</p>
                                       </div>
-                                  </div>
-                                  <button 
-                                      onClick={() => onCraftItem(recipe)}
-                                      disabled={!canCraft || disabled}
-                                      className={`px-5 py-2 rounded font-bold text-xs uppercase tracking-wider border transition-colors font-cinzel ${
-                                          canCraft 
-                                          ? 'bg-amber-700 hover:bg-amber-600 border-amber-500 text-white shadow-md' 
-                                          : 'bg-gray-800 border-gray-700 text-gray-600 cursor-not-allowed'
-                                      }`}
-                                  >
-                                      Craft
-                                  </button>
+                                  ) : (
+                                      <span className="text-gray-600 text-2xl font-bold">+</span>
+                                  )}
                               </div>
-                              
-                              <div className="bg-black/20 p-3 rounded text-sm">
-                                  <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-2">Requires:</p>
-                                  <ul className="flex flex-wrap gap-x-6 gap-y-1">
-                                      {recipe.ingredients.map((ing, i) => {
-                                          const have = countItemQuantity(ing.name);
-                                          const hasEnough = have >= ing.quantity;
-                                          return (
-                                              <li key={i} className={`font-bold ${hasEnough ? 'text-green-400' : 'text-red-400'}`}>
-                                                  {ing.name} <span className="text-xs opacity-70">({have}/{ing.quantity})</span>
-                                              </li>
-                                          );
-                                      })}
-                                  </ul>
-                              </div>
+                          );
+                      })}
+                  </div>
+
+                  <div className="flex justify-center">
+                      <button 
+                          onClick={handleCombine}
+                          disabled={selectedIndices.length !== 2 || disabled}
+                          className={`px-8 py-3 rounded font-bold text-sm uppercase tracking-wider border transition-all font-cinzel ${
+                              selectedIndices.length === 2 && !disabled
+                              ? 'bg-purple-700 hover:bg-purple-600 border-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.4)] scale-105' 
+                              : 'bg-gray-800 border-gray-700 text-gray-600 cursor-not-allowed opacity-50'
+                          }`}
+                      >
+                          Combine Items
+                      </button>
+                  </div>
+
+                  <div className="border-t border-gray-700 pt-4">
+                      <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Select Ingredients</h3>
+                      {inventory.length === 0 ? (
+                          <p className="text-center text-gray-500 italic py-4">Your bag is empty.</p>
+                      ) : (
+                          <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                              {inventory.map((item, index) => {
+                                  const isSelected = selectedIndices.includes(index);
+                                  const isDisabled = !isSelected && selectedIndices.length >= 2;
+
+                                  return (
+                                      <div 
+                                          key={index}
+                                          onClick={() => !isDisabled && toggleSelection(index)}
+                                          className={`p-3 rounded border flex items-center justify-between transition-all cursor-pointer ${
+                                              isSelected 
+                                                  ? 'bg-purple-900/30 border-purple-500 shadow-inner' 
+                                                  : isDisabled
+                                                      ? 'bg-gray-900/30 border-gray-800 opacity-50 cursor-not-allowed'
+                                                      : 'bg-gray-800/50 border-gray-700 hover:border-gray-500 hover:bg-gray-800'
+                                          }`}
+                                      >
+                                          <div className="flex items-center gap-3">
+                                              <div className={isSelected ? 'text-purple-300' : 'text-gray-500'}>
+                                                  {renderIcon(item.type)}
+                                              </div>
+                                              <div>
+                                                  <p className={`font-bold text-sm ${isSelected ? 'text-purple-100' : 'text-gray-300'}`}>
+                                                      {item.name} <span className="text-xs font-normal opacity-70">x{item.quantity}</span>
+                                                  </p>
+                                                  <p className="text-[10px] text-gray-500 italic truncate max-w-[200px]">{item.description}</p>
+                                              </div>
+                                          </div>
+                                          {isSelected && <div className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)]"></div>}
+                                      </div>
+                                  );
+                              })}
                           </div>
-                      );
-                  })}
+                      )}
+                  </div>
               </div>
           )}
         </div>

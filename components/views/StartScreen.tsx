@@ -24,9 +24,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart, onLoad, saveF
 
   const handleDelete = (e: React.MouseEvent, slotId: string) => {
       e.stopPropagation();
-      if (window.confirm("Are you sure you want to delete this save?")) {
-          onDeleteSave?.(slotId);
-      }
+      onDeleteSave?.(slotId);
   };
 
   return (
@@ -74,7 +72,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart, onLoad, saveF
                             {onDeleteSave && (
                                 <button 
                                     onClick={(e) => handleDelete(e, save.id)}
-                                    className="p-4 bg-red-900/50 hover:bg-red-700 text-red-300 hover:text-white rounded-lg border border-red-800 hover:border-red-500 transition-colors h-full flex items-center justify-center"
+                                    className="p-4 bg-red-900/50 hover:bg-red-700 text-red-300 hover:text-white rounded-lg border border-red-800 hover:border-red-500 transition-colors h-full flex items-center justify-center z-10 relative ml-2"
                                     title="Delete Save"
                                 >
                                     🗑️

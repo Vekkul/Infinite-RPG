@@ -2,6 +2,7 @@
 import { AppState, Action, GameState, Item, Player, Enemy, RewardType, MapLocation, PlayerAbility, StatusEffect, StatusEffectType, Element, ItemType, EquipmentSlot, Quest, Attributes } from '../types';
 import { initialState } from './initialState';
 import { PLAYER_ABILITIES, ELEMENTAL_RESISTANCES, STATUS_EFFECT_CONFIG } from '../constants';
+import { combineItems } from '../services/craftingService';
 
 const appendToLog = (log: string[], message: string): string[] => {
     return [...log.slice(-20), message];
@@ -497,16 +498,58 @@ export const reducer = (state: AppState, action: Action): AppState => {
         };
     }
 
-    case 'CRAFT_ITEM': {
-        const { recipe } = action.payload;
+    case 'COMBINE_ITEMS': {
+        const { item1Index, item2Index } = action.payload;
         let newInventory = [...state.player.inventory];
         let newLog = [...state.log];
 
-        for (const ingredient of recipe.ingredients) {
-            newInventory = removeItemFromInventory(newInventory, ingredient.name, ingredient.quantity);
+        const item1 = newInventory[item1Index];
+        const item2 = newInventory[item2Index];
+
+        if (!item1 || !item2) return state;
+
+        const result = combineItems(item1, item2);
+
+        if (result) {
+            // Remove ingredients
+            // We need to handle indices carefully. Remove higher index first to avoid shifting.
+            const firstToRemove = Math.max(item1Index, item2Index);
+            const secondToRemove = Math.min(item1Index, item2Index);
+
+            // Decrement quantity or remove
+            const item1Stack = { ...newInventory[firstToRemove] };
+            item1Stack.quantity -= 1;
+            if (item1Stack.quantity <= 0) {
+                newInventory.splice(firstToRemove, 1);
+            } else {
+                newInventory[firstToRemove] = item1Stack;
+            }
+
+            // Re-find second item index if array shifted? 
+            // Actually, if we use splice, indices change.
+            // Better approach: 
+            // 1. Create copies of items to decrement.
+            // 2. Filter out 0 quantity items at the end.
+            
+            // Let's restart logic for inventory update to be safe
+            newInventory = [...state.player.inventory];
+            const idx1 = item1Index;
+            const idx2 = item2Index;
+
+            // Decrement both
+            newInventory[idx1] = { ...newInventory[idx1], quantity: newInventory[idx1].quantity - 1 };
+            newInventory[idx2] = { ...newInventory[idx2], quantity: newInventory[idx2].quantity - 1 };
+
+            // Add result
+            newInventory = addItemToInventory(newInventory, result);
+
+            // Cleanup 0 quantity items
+            newInventory = newInventory.filter(i => i.quantity > 0);
+
+            newLog = appendToLog(newLog, `Combined ${item1.name} and ${item2.name} to create ${result.name}!`);
+        } else {
+            newLog = appendToLog(newLog, `Failed to combine ${item1.name} and ${item2.name}.`);
         }
-        newInventory = addItemToInventory(newInventory, recipe.result);
-        newLog = appendToLog(newLog, `Crafted ${recipe.result.name}!`);
 
         return {
             ...state,
@@ -753,6 +796,19 @@ export const reducer = (state: AppState, action: Action): AppState => {
             player: { ...state.player, journal: newJournal }
         };
     }
+
+    case 'SET_COMBAT_RESULT':
+        return {
+            ...state,
+            combatResult: action.payload,
+        };
+
+    case 'ACKNOWLEDGE_VICTORY':
+        return {
+            ...state,
+            combatResult: null,
+            enemies: [], // Clear enemies only after acknowledgement
+        };
 
     case 'SAVE_SCENE_STATE':
         return {

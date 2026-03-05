@@ -108,10 +108,31 @@ const PlayerStatusCard = React.memo(({ player }: { player: any }) => {
 
 const App: React.FC = () => {
     // Game Engine Hook - Contains all business logic
-    const { state, computed, ui, handlers } = useGameEngine();
-    const { gameState, player, enemies, storyText, log, isPlayerTurn, socialEncounter, worldData, playerLocationId } = state;
-    const { currentSceneActions } = computed;
-    const { saveFileExists, showLevelUp, eventPopups, isSaving } = ui;
+    const { 
+        state, 
+        saveFileExists, 
+        availableSaves, 
+        showLevelUp, 
+        eventPopups, 
+        isSaving,
+        startNewGame,
+        handleCharacterCreation,
+        saveGame,
+        loadGame,
+        deleteSave,
+        handleImprovise,
+        handleAction,
+        handleUseItem,
+        handleEquipItem,
+        handleUnequipItem,
+        handleCombineItems,
+        handleCombatAction,
+        handleSocialChoice,
+        acknowledgeVictory,
+        currentSceneActions
+    } = useGameEngine();
+
+    const { gameState, player, enemies, storyText, log, isPlayerTurn, socialEncounter, worldData, playerLocationId, combatResult } = state;
 
     // UI Local State
     const [isInventoryOpen, setIsInventoryOpen] = useState(false);
@@ -120,26 +141,35 @@ const App: React.FC = () => {
     const [isJournalOpen, setIsJournalOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [settings, setSettings] = useState<AppSettings>({ crtEnabled: false, textSpeed: 30 });
+    const prevHp = React.useRef(player.hp);
+
+    // Damage Popup Effect
+    React.useEffect(() => {
+        if (player.hp < prevHp.current) {
+            // Logic moved to useGameEngine
+        }
+        prevHp.current = player.hp;
+    }, [player.hp]);
 
     // Audio Hook
     const { isTtsEnabled, isSpeaking, toggleTts } = useAudio(storyText, gameState);
 
     const handleInventoryUse = (item: any, index: number) => {
-        handlers.handleUseItem(item, index);
+        handleUseItem(item, index);
         if (gameState === GameState.COMBAT) {
             setIsInventoryOpen(false);
         }
     };
 
     const handleInventoryEquip = (item: any, index: number) => {
-        handlers.handleEquipItem(item, index);
+        handleEquipItem(item, index);
         if (gameState === GameState.COMBAT) {
             setIsInventoryOpen(false);
         }
     };
 
     const handleInventoryUnequip = (slot: EquipmentSlot) => {
-        handlers.handleUnequipItem(slot);
+        handleUnequipItem(slot);
         if (gameState === GameState.COMBAT) {
             setIsInventoryOpen(false);
         }
@@ -149,30 +179,32 @@ const App: React.FC = () => {
         switch (gameState) {
             case GameState.START_SCREEN:
                 return <StartScreen 
-                    onStart={handlers.startNewGame} 
-                    onLoad={handlers.loadGame} 
+                    onStart={startNewGame} 
+                    onLoad={loadGame} 
                     saveFileExists={saveFileExists} 
-                    availableSaves={ui.availableSaves}
-                    onDeleteSave={handlers.deleteSave}
+                    availableSaves={availableSaves}
+                    onDeleteSave={deleteSave}
                 />;
             case GameState.CHARACTER_CREATION:
-                return <CharacterCreationScreen onCreate={handlers.handleCharacterCreation} />;
+                return <CharacterCreationScreen onCreate={handleCharacterCreation} />;
             case GameState.LOADING:
                 return <LoadingScreen />;
             case GameState.GAME_OVER:
-                return <GameOverScreen onRestart={handlers.startNewGame} />;
+                return <GameOverScreen onRestart={startNewGame} />;
             case GameState.EXPLORING:
-                return <ExploringView storyText={storyText} actions={currentSceneActions} onAction={handlers.handleAction} onImprovise={handlers.handleImprovise} />;
+                return <ExploringView storyText={storyText} actions={currentSceneActions} onAction={handleAction} onImprovise={handleImprovise} />;
             case GameState.COMBAT:
                 return <CombatView 
                     storyText={storyText} 
                     enemies={enemies} 
                     player={player}
                     isPlayerTurn={isPlayerTurn} 
-                    onCombatAction={handlers.handleCombatAction}
+                    combatResult={combatResult}
+                    onCombatAction={handleCombatAction}
+                    onAcknowledgeVictory={acknowledgeVictory}
                 />;
             case GameState.SOCIAL_ENCOUNTER:
-                return socialEncounter && <SocialEncounterView encounter={socialEncounter} onChoice={handlers.handleSocialChoice} onImprovise={handlers.handleImprovise} />;
+                return socialEncounter && <SocialEncounterView encounter={socialEncounter} onChoice={handleSocialChoice} onImprovise={handleImprovise} />;
             default:
                 return null;
         }
@@ -213,7 +245,7 @@ const App: React.FC = () => {
                         <MapIcon className="w-6 h-6"/>
                     </button>
                     <button 
-                        onClick={handlers.saveGame} 
+                        onClick={saveGame} 
                         disabled={isSaving || gameState === GameState.LOADING}
                         className={`flex-shrink-0 flex items-center justify-center p-3 rounded-lg border-2 active:scale-95 transition-all w-14 h-14 ${isSaving ? 'bg-green-600 border-green-400 opacity-80 cursor-not-allowed' : 'bg-indigo-700 hover:bg-indigo-600 border-indigo-500 text-white'}`}
                     >
@@ -231,7 +263,7 @@ const App: React.FC = () => {
     ));
 
     return (
-        <main className="w-full bg-gray-900 text-gray-200 flex flex-col overflow-x-hidden min-h-[100dvh] min-h-[560px]" style={{
+        <main className={`w-full bg-gray-900 text-gray-200 flex flex-col overflow-x-hidden min-h-[100dvh] min-h-[560px]`} style={{
             backgroundImage: `radial-gradient(circle, rgba(31, 41, 55, 0.9) 0%, rgba(17, 24, 39, 1) 70%)`,
         }}>
             {settings.crtEnabled && <div className="crt-effect" />}
@@ -244,7 +276,7 @@ const App: React.FC = () => {
                 onUseItem={handleInventoryUse}
                 onEquipItem={handleInventoryEquip}
                 onUnequipItem={handleInventoryUnequip}
-                onCraftItem={handlers.handleCraftItem}
+                onCombineItems={handleCombineItems}
                 disabled={!isPlayerTurn && gameState === GameState.COMBAT}
             />
             <JournalView isOpen={isJournalOpen} onClose={() => setIsJournalOpen(false)} player={player} />

@@ -174,20 +174,47 @@ export const getLatestSaveMetadata = async (): Promise<SaveMetadata | null> => {
 };
 
 export const deleteSave = async (slotId: string): Promise<void> => {
+    // 1. Delete from IndexedDB
     try {
         const db = await openDB();
         await new Promise<void>((resolve, reject) => {
             const transaction = db.transaction(STORE_NAME, 'readwrite');
             const store = transaction.objectStore(STORE_NAME);
             const request = store.delete(slotId);
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => resolve();
+            
+            request.onsuccess = () => {
+                // Request successful
+            };
+            request.onerror = () => {
+                console.error("IDB Delete Request Error:", request.error);
+                // We don't reject here, we let the transaction decide, 
+                // but usually request error bubbles to transaction.
+            };
+
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => {
+                console.error("IDB Transaction Error:", transaction.error);
+                reject(transaction.error);
+            };
+            
+            transaction.onabort = () => {
+                 reject(new Error("Transaction aborted"));
+            };
         });
     } catch (e) {
-        console.warn("Failed to delete from IDB", e);
+        console.warn("Failed to delete from IDB (or not found)", e);
     }
     
-    localStorage.removeItem(`${RPG_SAVE_KEY}_${slotId}`);
+    // 2. Delete from LocalStorage (always try)
+    try {
+        localStorage.removeItem(`${RPG_SAVE_KEY}_${slotId}`);
+        // Also try legacy key if it matches
+        if (slotId === 'manual_1') {
+            localStorage.removeItem(RPG_SAVE_KEY);
+        }
+    } catch (e) {
+        console.warn("Failed to delete from LocalStorage", e);
+    }
 };
 
 export const checkSaveExists = async (slotId: string = 'manual_1'): Promise<boolean> => {

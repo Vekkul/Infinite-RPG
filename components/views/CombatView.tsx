@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { Enemy, EnemyAbility, Player, PlayerAbility, StatusEffectType, Element } from '../../types';
+import { Enemy, EnemyAbility, Player, PlayerAbility, StatusEffectType, Element, Item } from '../../types';
 import { StatusBar } from '../StatusBar';
 import { HealIcon, ShieldIcon, SwordIcon, RunIcon, FireIcon, BoltIcon, StarIcon } from '../icons';
 import { useTypewriter } from '../../hooks/useTypewriter';
@@ -11,7 +11,9 @@ interface CombatViewProps {
   enemies: Enemy[];
   player: Player;
   isPlayerTurn: boolean;
+  combatResult: { xp: number; loot: Omit<Item, 'quantity'>[]; text: string } | null;
   onCombatAction: (action: 'attack' | 'defend' | 'flee' | 'ability', payload?: any) => void;
+  onAcknowledgeVictory: () => void;
 }
 
 interface DamagePopup {
@@ -88,13 +90,23 @@ const EnemyUnit = React.memo(({ enemy, index, damagePopups }: { enemy: Enemy, in
 });
 
 
-export const CombatView: React.FC<CombatViewProps> = ({ storyText, enemies, player, isPlayerTurn, onCombatAction }) => {
+export const CombatView: React.FC<CombatViewProps> = ({ storyText, enemies, player, isPlayerTurn, combatResult, onCombatAction, onAcknowledgeVictory }) => {
     const [view, setView] = useState<'main' | 'targeting' | 'abilities'>('main');
     const [actionType, setActionType] = useState<'attack' | 'ability'>('attack');
     const [selectedAbility, setSelectedAbility] = useState<PlayerAbility | null>(null);
     const [damagePopups, setDamagePopups] = useState<DamagePopup[]>([]);
 
     const displayedText = useTypewriter(storyText, 30);
+
+    // Auto-acknowledge victory
+    useEffect(() => {
+        if (combatResult) {
+            const timer = setTimeout(() => {
+                onAcknowledgeVictory();
+            }, 3500); // 3.5 seconds delay to read victory text
+            return () => clearTimeout(timer);
+        }
+    }, [combatResult, onAcknowledgeVictory]);
     
     // Create popups without triggering full re-renders of unrelated components if possible
     const createDamagePopup = useCallback((damage: number, isCrit: boolean, enemyIndex: number) => {
@@ -182,7 +194,16 @@ export const CombatView: React.FC<CombatViewProps> = ({ storyText, enemies, play
     }, [player.abilities, player.mp, player.ep, player.sp, handleActionClick]);
 
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full relative">
+            {combatResult && (
+                <div className="absolute top-0 left-0 right-0 z-50 animate-slide-down pointer-events-none">
+                    <div className="bg-gradient-to-b from-yellow-900/90 to-transparent p-4 text-center">
+                        <h2 className="text-3xl font-cinzel font-bold text-yellow-400 drop-shadow-md animate-pulse">VICTORY!</h2>
+                        <p className="text-yellow-200/80 text-sm font-serif italic mt-1">{combatResult.text}</p>
+                    </div>
+                </div>
+            )}
+
             {/* Scrollable Content Area (Enemies + Text) */}
             <div className="flex-1 min-h-0 overflow-y-auto pr-2 pb-2 flex flex-col gap-4">
                 {/* Narrative Area */}

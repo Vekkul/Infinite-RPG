@@ -284,6 +284,7 @@ export interface AppState {
   worldData: WorldData | null;
   playerLocationId: string | null;
   preCombatState: { description: string; actions: GameAction[] } | null;
+  combatResult: { xp: number; loot: Omit<Item, 'quantity'>[]; text: string } | null;
 }
 
 export type Action =
@@ -303,10 +304,13 @@ export type Action =
   | { type: 'ADD_LOG'; payload: string }
   | { type: 'ADD_ITEM_TO_INVENTORY'; payload: Omit<Item, 'quantity'> }
   | { type: 'PROCESS_COMBAT_VICTORY'; payload: { xpGained: number; loot: Omit<Item, 'quantity'>[]; regen: {hp: number; mp: number; ep: number; sp: number; } } }
+  | { type: 'SET_COMBAT_RESULT'; payload: { xp: number; loot: Omit<Item, 'quantity'>[]; text: string } }
+  | { type: 'ACKNOWLEDGE_VICTORY' }
   | { type: 'USE_ITEM'; payload: { inventoryIndex: number } }
   | { type: 'EQUIP_ITEM'; payload: { inventoryIndex: number } }
   | { type: 'UNEQUIP_ITEM'; payload: { slot: EquipmentSlot } }
   | { type: 'CRAFT_ITEM'; payload: { recipe: Recipe } }
+  | { type: 'COMBINE_ITEMS'; payload: { item1Index: number; item2Index: number } }
   | { type: 'ENEMY_ACTION_HEAL'; payload: { enemyIndex: number; healAmount: number } }
   | { type: 'ENEMY_ACTION_DRAIN_LIFE', payload: { enemyIndex: number; damage: number } }
   | { type: 'ENEMY_ACTION_SHIELD'; payload: { enemyIndex: number } }
