@@ -1,7 +1,7 @@
 
-import { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { GameState, SaveData, WorldData, Player, GameAction, EventPopup } from '../types';
-import { saveGameToStorage, loadGameFromStorage, getLatestSaveMetadata, listSaves } from '../services/storageService';
+import { saveGameToStorage, loadGameFromStorage, getLatestSaveMetadata, listSaves, deleteSave } from '../services/storageService';
 
 interface UseSaveSystemProps {
     state: {
@@ -12,6 +12,7 @@ interface UseSaveSystemProps {
         worldData: WorldData | null;
         playerLocationId: string | null;
         gameState: GameState;
+        locationCache: Record<string, any>;
     };
     dispatch: React.Dispatch<any>;
     appendToLog: (message: string) => void;
@@ -57,7 +58,8 @@ export const useSaveSystem = ({ state, dispatch, appendToLog, createEventPopup }
             actions: state.actions, 
             log: state.log, 
             worldData: state.worldData, 
-            playerLocationId: state.playerLocationId 
+            playerLocationId: state.playerLocationId,
+            locationCache: state.locationCache || {}
         };
         
         setIsSaving(true);

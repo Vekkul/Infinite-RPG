@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { GameState, Enemy, Player, EnemyAbility, StatusEffectType, AIPersonality, Element, PlayerAbility, Item } from '../types';
 import { STATUS_EFFECT_CONFIG, ENEMY_STATUS_CHANCE, ENEMY_STATUS_MAP, CRIT_CHANCE, CRIT_MULTIPLIER, FLEE_CHANCE } from '../constants';
 
@@ -102,58 +102,60 @@ export const useCombatSystem = ({
         }
     }, [state.enemies, state.preCombatState, loadSceneForCurrentLocation, isLocalCombatRef, dispatch]);
 
+    const stateRef = useRef(state);
+    useEffect(() => {
+        stateRef.current = state;
+    }, [state]);
+
     // Combat Logic: Enemy AI Turn
     useEffect(() => {
         if (state.gameState !== GameState.COMBAT || state.isPlayerTurn || enemyTurnInProgress.current || state.combatResult) return;
 
-        const handleCombatVictory = async (defeatedEnemies: Enemy[]) => {
-            const totalXpGained = defeatedEnemies.reduce((sum, e) => sum + Math.floor(e.maxHp / 2) + e.attack, 0);
-            const lootItems = defeatedEnemies.map(e => e.loot).filter((l): l is Omit<Item, 'quantity'> => !!l);
-            const enemyNames = defeatedEnemies.map(e => e.name).join(', ');
-
-            let regen = { hp: 0, mp: 0, ep: 0, sp: 0 };
-            // Base regeneration
-            regen.hp = Math.floor(state.player.maxHp * 0.05);
-
-            // Regenerate resources if they have them
-            if (state.player.maxMp > 0) regen.mp = Math.max(1, Math.floor(state.player.maxMp * 0.15));
-            if (state.player.maxEp > 0) regen.ep = Math.max(1, Math.floor(state.player.maxEp * 0.15));
-            if (state.player.maxSp > 0) regen.sp = Math.max(1, Math.floor(state.player.maxSp * 0.15));
-            
-            dispatch({ 
-                type: 'PROCESS_COMBAT_VICTORY', 
-                payload: { xpGained: totalXpGained, loot: lootItems, regen }
-            });
-            
-            // Add to Narrative History
-            dispatch({ type: 'ADD_NARRATIVE_HISTORY', payload: `Defeated ${enemyNames}.` });
-            
-            const victoryTexts = [
-                `The ${enemyNames} lies defeated at your feet.`,
-                `Silence falls as the ${enemyNames} is vanquished.`,
-                `You stand victorious over the fallen ${enemyNames}.`
-            ];
-            const text = victoryTexts[Math.floor(Math.random() * victoryTexts.length)];
-
-            dispatch({
-                type: 'SET_COMBAT_RESULT',
-                payload: { xp: totalXpGained, loot: lootItems, text }
-            });
-        };
-
-        const allEnemiesDefeated = state.enemies.every(e => e.hp <= 0);
-        if (allEnemiesDefeated && state.enemies.length > 0) {
-            handleCombatVictory(state.enemies);
-            return;
-        }
-
         const runEnemyTurns = async () => {
             enemyTurnInProgress.current = true;
-            let currentHp = state.player.hp;
             
             // DELAY 1: Post-player turn pause (600ms)
             await new Promise(resolve => setTimeout(resolve, 600));
-    
+
+            // We use the ref to get the absolute latest state at the start of the turn
+            const currentState = stateRef.current;
+            const allEnemiesDefeated = currentState.enemies.every(e => e.hp <= 0);
+            
+            if (allEnemiesDefeated && currentState.enemies.length > 0) {
+                const defeatedEnemies = currentState.enemies;
+                const totalXpGained = defeatedEnemies.reduce((sum, e) => sum + Math.floor(e.maxHp / 2) + e.attack, 0);
+                const lootItems = defeatedEnemies.map(e => e.loot).filter((l): l is Omit<Item, 'quantity'> => !!l);
+                const enemyNames = defeatedEnemies.map(e => e.name).join(', ');
+
+                let regen = { hp: 0, mp: 0, ep: 0, sp: 0 };
+                regen.hp = Math.floor(currentState.player.maxHp * 0.05);
+                if (currentState.player.maxMp > 0) regen.mp = Math.max(1, Math.floor(currentState.player.maxMp * 0.15));
+                if (currentState.player.maxEp > 0) regen.ep = Math.max(1, Math.floor(currentState.player.maxEp * 0.15));
+                if (currentState.player.maxSp > 0) regen.sp = Math.max(1, Math.floor(currentState.player.maxSp * 0.15));
+                
+                dispatch({ 
+                    type: 'PROCESS_COMBAT_VICTORY', 
+                    payload: { xpGained: totalXpGained, loot: lootItems, regen }
+                });
+                
+                dispatch({ type: 'ADD_NARRATIVE_HISTORY', payload: `Defeated ${enemyNames}.` });
+                
+                const victoryTexts = [
+                    `The ${enemyNames} lies defeated at your feet.`,
+                    `Silence falls as the ${enemyNames} is vanquished.`,
+                    `You stand victorious over the fallen ${enemyNames}.`
+                ];
+                const text = victoryTexts[Math.floor(Math.random() * victoryTexts.length)];
+
+                dispatch({
+                    type: 'SET_COMBAT_RESULT',
+                    payload: { xp: totalXpGained, loot: lootItems, text }
+                });
+                
+                enemyTurnInProgress.current = false;
+                return;
+            }
+
             // Weighted RNG Decision Logic
             const determineEnemyAction = (enemy: Enemy): 'attack' | EnemyAbility | null => {
                 if (!enemy.ability) return 'attack';
@@ -163,32 +165,25 @@ export const useCombatSystem = ({
 
                 switch (enemy.aiPersonality) {
                     case AIPersonality.AGGRESSIVE:
-                        // 70% Attack, 20% Ability, 10% Wait/Fallthrough
                         if (roll < 0.70) return 'attack';
                         if (roll < 0.90) return enemy.ability;
                         return 'attack';
                     
                     case AIPersonality.DEFENSIVE:
-                         // High chance to Heal/Shield if low HP, otherwise balanced
                         if (hpPercent < 0.5 && (enemy.ability === EnemyAbility.HEAL || enemy.ability === EnemyAbility.SHIELD)) {
-                             // 60% chance to use defensive ability when low
                              if (roll < 0.60) return enemy.ability;
                         }
-                        // Default Defensive: 40% Attack, 40% Defend/Ability, 20% Wait
                         if (roll < 0.40) return 'attack';
                         if (roll < 0.80) return enemy.ability;
                         return 'attack';
 
                     case AIPersonality.STRATEGIC:
-                        // Context aware. 
                         if (enemy.ability === EnemyAbility.HEAL && hpPercent < 0.4) return EnemyAbility.HEAL;
                         if (enemy.ability === EnemyAbility.SHIELD && !enemy.isShielded && roll < 0.7) return EnemyAbility.SHIELD;
-                        // Otherwise 60/40 split
                         if (roll < 0.6) return 'attack';
                         return enemy.ability;
 
                     case AIPersonality.WILD:
-                        // 50/50 Split
                         if (roll < 0.5) return 'attack';
                         return enemy.ability;
 
@@ -197,75 +192,80 @@ export const useCombatSystem = ({
                 }
             };
     
-            for (let i = 0; i < state.enemies.length; i++) {
-                    if (!combatActiveRef.current) break;
-    
-                    if (state.enemies[i].hp > 0 && currentHp > 0) { 
+            let currentHp = stateRef.current.player.hp;
+
+            for (let i = 0; i < stateRef.current.enemies.length; i++) {
+                if (!combatActiveRef.current) break;
+                
+                // Get fresh enemy data from ref in case previous enemy actions changed state
+                const enemy = stateRef.current.enemies[i];
+                if (enemy.hp > 0 && currentHp > 0) { 
                     
-                    // DELAY 2: Pause before each enemy specific action (1000ms)
                     await new Promise(resolve => setTimeout(resolve, 1000));
-                    
                     if (!combatActiveRef.current) break;
     
                     dispatch({ type: 'PROCESS_TURN_EFFECTS', payload: { target: 'enemy', index: i } });
-                    const enemy = state.enemies[i]; 
-    
-                    if (enemy.statusEffects.some(e => e.type === StatusEffectType.SHOCK) && Math.random() < STATUS_EFFECT_CONFIG.SHOCK.stunChance) {
-                        appendToLog(`${enemy.name} is Shocked and unable to move!`);
+                    
+                    // Re-fetch after effects
+                    const updatedEnemy = stateRef.current.enemies[i];
+                    if (updatedEnemy.hp <= 0) continue;
+
+                    if (updatedEnemy.statusEffects.some(e => e.type === StatusEffectType.SHOCK) && Math.random() < STATUS_EFFECT_CONFIG.SHOCK.stunChance) {
+                        appendToLog(`${updatedEnemy.name} is Shocked and unable to move!`);
                         continue;
                     }
                     
-                    if (enemy.isShielded) {
+                    if (updatedEnemy.isShielded) {
                         dispatch({ type: 'UPDATE_ENEMY', payload: { index: i, data: { isShielded: false } } });
-                        appendToLog(`${enemy.name}'s shield fades.`);
+                        appendToLog(`${updatedEnemy.name}'s shield fades.`);
                     }
                     
-                    const actionToTake = determineEnemyAction(enemy);
+                    const actionToTake = determineEnemyAction(updatedEnemy);
     
                     if (actionToTake !== 'attack' && actionToTake !== null) {
-                            appendToLog(`${enemy.name} uses ${actionToTake}!`);
+                        appendToLog(`${updatedEnemy.name} uses ${actionToTake}!`);
                         switch (actionToTake) {
                             case EnemyAbility.HEAL:
-                                const healAmount = Math.floor(enemy.maxHp * 0.25);
+                                const healAmount = Math.floor(updatedEnemy.maxHp * 0.25);
                                 dispatch({ type: 'ENEMY_ACTION_HEAL', payload: { enemyIndex: i, healAmount } });
-                                createEventPopup(`${enemy.name} heals!`, 'heal');
-                                appendToLog(`${enemy.name} recovers ${healAmount} HP.`);
+                                createEventPopup(`${updatedEnemy.name} heals!`, 'heal');
+                                appendToLog(`${updatedEnemy.name} recovers ${healAmount} HP.`);
                                 break;
                             case EnemyAbility.SHIELD:
                                 dispatch({ type: 'ENEMY_ACTION_SHIELD', payload: { enemyIndex: i } });
-                                createEventPopup(`${enemy.name} shields!`, 'info');
-                                appendToLog(`${enemy.name} raises a magical shield!`);
+                                createEventPopup(`${updatedEnemy.name} shields!`, 'info');
+                                appendToLog(`${updatedEnemy.name} raises a magical shield!`);
                                 break;
                             case EnemyAbility.DRAIN_LIFE:
-                                const drainDamage = Math.floor(enemy.attack * 0.8 + (Math.random() * 4 - 2));
-                                const playerDamageTakenDrain = state.player.isDefending ? Math.max(1, Math.floor(drainDamage / 2)) : drainDamage;
-                                const finalDamageDrain = Math.max(1, playerDamageTakenDrain - (state.player.defense || 0));
+                                const drainDamage = Math.floor(updatedEnemy.attack * 0.8 + (Math.random() * 4 - 2));
+                                const playerDamageTakenDrain = stateRef.current.player.isDefending ? Math.max(1, Math.floor(drainDamage / 2)) : drainDamage;
+                                const finalDamageDrain = Math.max(1, playerDamageTakenDrain - (stateRef.current.player.defense || 0));
                                 
                                 currentHp = Math.max(0, currentHp - finalDamageDrain);
                                 dispatch({ type: 'UPDATE_PLAYER', payload: { hp: currentHp } });
                                 dispatch({type: 'ENEMY_ACTION_DRAIN_LIFE', payload: { enemyIndex: i, damage: finalDamageDrain }})
-                                appendToLog(`${enemy.name} drains ${finalDamageDrain} HP from you!`);
+                                appendToLog(`${updatedEnemy.name} drains ${finalDamageDrain} HP from you!`);
                                 break;
                             case EnemyAbility.MULTI_ATTACK:
                                 for (let j=0; j<2; j++) {
                                     if(currentHp > 0) {
                                         await new Promise(resolve => setTimeout(resolve, 500));
                                         if (!combatActiveRef.current) break;
-                                        const multiDamage = Math.floor(enemy.attack * 0.7 + (Math.random() * 3 - 1));
-                                        let playerDamageTakenMulti = state.player.isDefending ? Math.max(1, Math.floor(multiDamage / 2)) : multiDamage;
-                                        playerDamageTakenMulti = Math.max(1, playerDamageTakenMulti - (state.player.defense || 0));
+                                        const multiDamage = Math.floor(updatedEnemy.attack * 0.7 + (Math.random() * 3 - 1));
+                                        let playerDamageTakenMulti = stateRef.current.player.isDefending ? Math.max(1, Math.floor(multiDamage / 2)) : multiDamage;
+                                        playerDamageTakenMulti = Math.max(1, playerDamageTakenMulti - (stateRef.current.player.defense || 0));
                                         currentHp = Math.max(0, currentHp - playerDamageTakenMulti);
                                         dispatch({ type: 'UPDATE_PLAYER', payload: { hp: currentHp } });
-                                        appendToLog(`${enemy.name} strikes! You take ${playerDamageTakenMulti} damage.`);
+                                        appendToLog(`${updatedEnemy.name} strikes! You take ${playerDamageTakenMulti} damage.`);
                                     }
                                 }
                                 break;
                         }
                     } else {
                         const isCrit = Math.random() < CRIT_CHANCE;
-                        let enemyDamage = Math.floor(enemy.attack + (Math.random() * 4 - 2));
+                        let enemyDamage = Math.floor(updatedEnemy.attack + (Math.random() * 4 - 2));
     
-                        if (enemy.statusEffects.some(e => e.type === StatusEffectType.CHILL)) {
+                        if (updatedEnemy.statusEffects.some(e => e.type === StatusEffectType.CHILL)) {
                             enemyDamage = Math.floor(enemyDamage * (1 - STATUS_EFFECT_CONFIG.CHILL.damageReduction));
                         }
     
@@ -273,30 +273,30 @@ export const useCombatSystem = ({
                             enemyDamage = Math.floor(enemyDamage * CRIT_MULTIPLIER);
                         }
                         
-                        let playerDamageTaken = state.player.isDefending ? Math.max(1, Math.floor(enemyDamage / 2)) : enemyDamage;
+                        let playerDamageTaken = stateRef.current.player.isDefending ? Math.max(1, Math.floor(enemyDamage / 2)) : enemyDamage;
                         
-                        if (state.player.statusEffects.some(e => e.type === StatusEffectType.GROUNDED)) {
+                        if (stateRef.current.player.statusEffects.some(e => e.type === StatusEffectType.GROUNDED)) {
                             playerDamageTaken = Math.floor(playerDamageTaken * (1 + STATUS_EFFECT_CONFIG.GROUNDED.defenseReduction));
                         }
-                         if (state.player.statusEffects.some(e => e.type === StatusEffectType.EARTH_ARMOR)) {
+                         if (stateRef.current.player.statusEffects.some(e => e.type === StatusEffectType.EARTH_ARMOR)) {
                             playerDamageTaken = Math.floor(playerDamageTaken * (1 - STATUS_EFFECT_CONFIG.EARTH_ARMOR.defenseBonus));
                         }
                         
-                        playerDamageTaken = Math.max(1, playerDamageTaken - (state.player.defense || 0));
+                        playerDamageTaken = Math.max(1, playerDamageTaken - (stateRef.current.player.defense || 0));
     
                         const newPlayerHp = Math.max(0, currentHp - playerDamageTaken);
                         currentHp = newPlayerHp;
                         dispatch({ type: 'UPDATE_PLAYER', payload: { hp: newPlayerHp } });
-                        appendToLog(`${enemy.name} attacks! You take ${playerDamageTaken} damage. ${isCrit ? 'CRITICAL!' : ''}`);
+                        appendToLog(`${updatedEnemy.name} attacks! You take ${playerDamageTaken} damage. ${isCrit ? 'CRITICAL!' : ''}`);
     
-                        if (enemy.element && enemy.element !== Element.NONE && Math.random() < ENEMY_STATUS_CHANCE[enemy.element]) {
-                            const effectType = ENEMY_STATUS_MAP[enemy.element];
+                        if (updatedEnemy.element && updatedEnemy.element !== Element.NONE && Math.random() < ENEMY_STATUS_CHANCE[updatedEnemy.element]) {
+                            const effectType = ENEMY_STATUS_MAP[updatedEnemy.element];
                             const effect: any = {
                                 type: effectType,
                                 duration: STATUS_EFFECT_CONFIG[effectType].duration
                             };
                             if(effect.type === StatusEffectType.BURN) {
-                                effect.sourceAttack = enemy.attack;
+                                effect.sourceAttack = updatedEnemy.attack;
                             }
                             dispatch({type: 'APPLY_STATUS_EFFECT', payload: { target: 'player', effect }})
                         }
@@ -321,8 +321,6 @@ export const useCombatSystem = ({
     }, [
         state.gameState, 
         state.isPlayerTurn, 
-        state.enemies, 
-        state.player, 
         state.combatResult, 
         dispatch, 
         appendToLog, 

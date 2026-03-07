@@ -12,7 +12,13 @@ const TEXT_MODEL = 'gemini-3-flash-preview';
 const IMAGE_MODEL = 'gemini-2.5-flash-image';
 const TTS_MODEL = 'gemini-2.5-flash-preview-tts';
 
-const SYSTEM_INSTRUCTION = "You are a fantasy RPG dungeon master. Be creative, engaging, and concise. Responses must strictly adhere to the provided JSON schema.";
+const SYSTEM_INSTRUCTION = `You are a world-class fantasy RPG Dungeon Master. 
+Your goal is to weave a compelling, reactive narrative based on the player's choices.
+- Be vivid but concise (max 60 words for descriptions).
+- Strictly adhere to the provided JSON schema.
+- Ensure narrative continuity by referencing the provided context.
+- When generating items, ensure they are balanced for the player's current level.
+- When generating social choices, make them impactful and distinct.`;
 
 // --- Schemas (Kept as is for brevity, assume they exist) ---
 const questSchema = {
@@ -62,7 +68,7 @@ const sceneSchema = {
         },
         localActions: {
             type: Type.ARRAY,
-            description: "1 or 2 unique local actions (not movement).",
+            description: "Exactly 2 unique local actions (not movement).",
             items: {
                 type: Type.OBJECT,
                 properties: {
@@ -180,12 +186,25 @@ const safeJsonParse = <T>(text: string | undefined, fallbackMessage: string): T 
     try {
         if (!text) throw new Error("Text is undefined");
         let cleanedText = text.trim();
+        
         // Remove markdown code blocks if present
         cleanedText = cleanedText.replace(/^```json\s*/, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
         
-        if ((!cleanedText.startsWith('{') && !cleanedText.startsWith('['))) {
+        // Find first { or [ and last } or ] to handle trailing text
+        const firstBrace = cleanedText.indexOf('{');
+        const firstBracket = cleanedText.indexOf('[');
+        const start = (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) ? firstBrace : firstBracket;
+        
+        const lastBrace = cleanedText.lastIndexOf('}');
+        const lastBracket = cleanedText.lastIndexOf(']');
+        const end = (lastBrace !== -1 && (lastBracket === -1 || lastBrace > lastBracket)) ? lastBrace : lastBracket;
+
+        if (start === -1 || end === -1) {
              throw new Error("Response is not JSON");
         }
+        
+        cleanedText = cleanedText.substring(start, end + 1);
+        
         return JSON.parse(cleanedText) as T;
     } catch (error) {
         console.warn(`JSON Parse Error: ${fallbackMessage}`, error);
@@ -213,40 +232,43 @@ const callWithRetry = async <T>(
 
 // --- Helper for Prompt Construction ---
 const getContextString = (player: Player) => {
-    let context = `Context: Level ${player.level} ${player.className}.`;
-    if (player.journal.quests.length > 0) {
-        // Only show active quests to save tokens
-        const activeQuests = player.journal.quests
-            .filter(q => q.status === 'ACTIVE')
-            .map(q => `${q.title} (${q.id})`)
-            .join(', ');
-        
-        if (activeQuests) {
-             context += ` Active Quests: ${activeQuests}.`;
-        }
+    let context = `Player: Level ${player.level} ${player.className}. `;
+    
+    // Only show the 3 most relevant active quests to save tokens
+    const activeQuests = player.journal.quests
+        .filter(q => q.status === 'ACTIVE')
+        .slice(-3)
+        .map(q => `${q.title} (ID: ${q.id})`)
+        .join(', ');
+    
+    if (activeQuests) {
+         context += `Active Quests: ${activeQuests}. `;
     }
     
-    // Inject the Narrative History chain
+    // Inject the Narrative History chain - last 5 events for tight context
     if (player.journal.history && player.journal.history.length > 0) {
-        // Limit to last 6 events for relevance
-        const recentHistory = player.journal.history.slice(-6);
-        context += ` Recent Events: ${recentHistory.join(' -> ')}.`;
+        const recentHistory = player.journal.history.slice(-5);
+        context += `Recent History: ${recentHistory.join(' -> ')}. `;
     }
 
+    // Limit to last 5 flags
     if (player.journal.flags.length > 0) {
-        // Optimization: Limit to last 8 flags to keep context small but relevant
-        const recentFlags = player.journal.flags.slice(-8);
-        context += ` Recent Flags: ${recentFlags.join(', ')}.`;
+        const recentFlags = player.journal.flags.slice(-5);
+        context += `Flags: ${recentFlags.join(', ')}. `;
     }
-    return context;
+    return context.trim();
 };
 
 export const generateExploreResult = async (player: Player, action: GameAction): Promise<{ description: string; nextSceneType: 'EXPLORATION' | 'SOCIAL' | 'COMBAT'; localActions?: GameAction[]; foundItem?: Omit<Item, 'quantity'>; socialChoices?: SocialChoice[]; questUpdate?: QuestUpdate; isFallback?: boolean; }> => {
     try {
         const context = getContextString(player);
+        const prompt = `${context} Action: "${action.label}" (Type: ${action.type}). 
+        Generate result. ${action.type === 'encounter' ? 'This action is high-risk and likely leads to COMBAT, but if the player just fought here, consider a different outcome.' : 'Favor EXPLORATION unless the action is explicitly risky.'} 
+        If EXPLORATION, describe scene and provide exactly 2 local actions. If SOCIAL/COMBAT, lead-in text. Update quests if applicable.`;
+
         const response = await callWithRetry<GenerateContentResponse>(() => getAi().models.generateContent({
             model: TEXT_MODEL,
-            contents: `${context} Action: "${action.label}". Generate result. Favor EXPLORATION unless the action is explicitly risky or the area is known to be dangerous. If EXPLORATION, describe scene. If SOCIAL/COMBAT, lead-in text. Update quests if applicable.`,
+            contents: prompt,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: "application/json",
@@ -282,7 +304,7 @@ export const generateImproviseResult = async (player: Player, input: string): Pr
         const context = getContextString(player);
         const response = await callWithRetry<GenerateContentResponse>(() => getAi().models.generateContent({
             model: TEXT_MODEL,
-            contents: `${context} Player Input: "${input}". Resolve action. If skill check, assume fair roll. Transition to combat/social if appropriate.`,
+            contents: `${context} Player Input: "${input}". Resolve action. If skill check, assume fair roll. Transition to combat/social if appropriate. If EXPLORATION, provide exactly 2 local actions.`,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: "application/json",
@@ -328,7 +350,7 @@ export const generateScene = async (
             prompt += ` Context update: The player ${action} a ${enemyNames} while traveling here. Incorporate this aftermath into the location description (e.g. wiping blade, catching breath) but focusing on the new location.`;
         }
 
-        prompt += ` Describe scene. 1-2 local actions.`;
+        prompt += ` Describe scene. Exactly 2 local actions.`;
 
         const response = await callWithRetry<GenerateContentResponse>(() => getAi().models.generateContent({
             model: TEXT_MODEL,
@@ -554,7 +576,7 @@ export const generateWorldData = async (): Promise<WorldData | null> => {
                         },
                     },
                     {
-                        text: `Analyze map. Create JSON. 6-8 locations (villages, forests, etc). Include 'Oakhaven' (id: 'oakhaven') as startLocationId. Ensure connected graph.`,
+                        text: `Analyze map. Create JSON. 6-8 locations (villages, forests, etc). Include 'Oakhaven' (id: 'oakhaven') as startLocationId. Ensure connected graph where each location has at least 2 connections.`,
                     },
                 ],
             },
@@ -620,5 +642,35 @@ export const generateSpeech = async (text: string): Promise<{ audio: string; isF
 
     } catch (error) {
         return { audio: "", isFallback: true };
+    }
+};
+
+export const generateCraftingResult = async (item1: Item, item2: Item): Promise<Item | null> => {
+    try {
+        const response = await callWithRetry<GenerateContentResponse>(() => getAi().models.generateContent({
+            model: TEXT_MODEL,
+            contents: `Combine "${item1.name}" (${item1.description}) and "${item2.name}" (${item2.description}) into a new RPG item. 
+            If they don't make sense together, create a "Failed Experiment" or "Sludge".
+            Return JSON matching the Item interface.`,
+            config: {
+                systemInstruction: SYSTEM_INSTRUCTION,
+                responseMimeType: "application/json",
+                responseSchema: itemSchema,
+                temperature: 0.7,
+            },
+        }));
+
+        const data = safeJsonParse<Item>(response.text, "generateCraftingResult");
+        if (data) {
+            return {
+                ...data,
+                quantity: 1, 
+                stackLimit: data.stackLimit || 1
+            };
+        }
+        return null;
+    } catch (error) {
+        console.error("Crafting generation failed", error);
+        return null;
     }
 };

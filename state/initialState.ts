@@ -28,4 +28,6 @@ export const initialState: AppState = {
   worldData: null,
   playerLocationId: null,
   preCombatState: null,
+  combatResult: null,
+  locationCache: {},
 };

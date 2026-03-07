@@ -1,5 +1,5 @@
 
-import { useCallback, useRef, useEffect, useMemo } from 'react';
+import React, { useCallback, useRef, useEffect, useMemo } from 'react';
 import { GameState, Player, GameAction, SocialChoice, WorldData, SocialEncounter, Item, EventPopup, Attributes, PlayerAbility, Enemy } from '../types';
 import { generateScene, generateEncounter, generateWorldData, generateExploreResult, generateImproviseResult } from '../services/geminiService';
 import { TRAVEL_ENCOUNTER_CHANCE } from '../constants';
@@ -13,6 +13,7 @@ interface UseExplorationSystemProps {
         actions: GameAction[];
         gameState: GameState;
         preCombatState: any;
+        locationCache: Record<string, any>;
     };
     dispatch: React.Dispatch<any>;
     appendToLog: (message: string) => void;
@@ -94,21 +95,15 @@ export const useExplorationSystem = ({
 
     }, [state.worldData, state.playerLocationId, state.player, handleFoundItem, handleFallback, dispatch, operationIdRef]);
 
-    const handleImprovise = useCallback(async (input: string) => {
-        if (!input.trim()) return;
-        const opId = ++operationIdRef.current;
-        dispatch({ type: 'SET_GAME_STATE', payload: GameState.LOADING });
-        appendToLog(`You attempt to: "${input}"`);
-
-        const result = await generateImproviseResult(state.player, input);
+    const handleSceneResult = useCallback((result: any, opId: number, inputLabel?: string) => {
         if (opId !== operationIdRef.current) return;
 
         if (result.isFallback) handleFallback();
 
-        appendToLog(result.description);
-        
-        // Add to narrative history for continuity
-        dispatch({ type: 'ADD_NARRATIVE_HISTORY', payload: `Improvised: "${input}" -> ${result.description}` });
+        if (inputLabel) {
+            appendToLog(result.description);
+            dispatch({ type: 'ADD_NARRATIVE_HISTORY', payload: `${inputLabel} -> ${result.description}` });
+        }
 
         if (result.questUpdate) {
              const quest = state.player.journal.quests.find(q => q.id === result.questUpdate?.questId);
@@ -121,9 +116,7 @@ export const useExplorationSystem = ({
 
         if (result.nextSceneType === 'EXPLORATION') {
             dispatch({ type: 'SET_SCENE', payload: { description: result.description, actions: result.localActions || [] } });
-            if (result.foundItem) {
-                handleFoundItem(result.foundItem);
-            }
+            if (result.foundItem) handleFoundItem(result.foundItem);
             dispatch({ type: 'SET_GAME_STATE', payload: GameState.EXPLORING });
 
         } else if (result.nextSceneType === 'SOCIAL') {
@@ -138,22 +131,30 @@ export const useExplorationSystem = ({
                 dispatch({ type: 'SET_GAME_STATE', payload: GameState.EXPLORING });
             }
         } else if (result.nextSceneType === 'COMBAT') {
-            // Optimization: Local encounter, save scene state
             isLocalCombatRef.current = true;
             dispatch({ type: 'SAVE_SCENE_STATE' });
 
-            // Note: generateEncounter is now synchronous/local, no API call
-            const { enemies: newEnemies, isFallback } = await generateEncounter(state.player);
-            if (opId !== operationIdRef.current) return;
-
-            if (isFallback) handleFallback();
-            dispatch({ type: 'SET_ENEMIES', payload: newEnemies });
-            dispatch({ type: 'SET_SCENE', payload: { description: result.description, actions: [] } });
-            appendToLog(newEnemies.length > 0 ? newEnemies[0].description : 'An unseen foe strikes!');
-            dispatch({ type: 'SET_GAME_STATE', payload: GameState.COMBAT });
-            dispatch({ type: 'SET_PLAYER_TURN', payload: true });
+            generateEncounter(state.player).then(({ enemies: newEnemies, isFallback }) => {
+                if (opId !== operationIdRef.current) return;
+                if (isFallback) handleFallback();
+                dispatch({ type: 'SET_ENEMIES', payload: newEnemies });
+                dispatch({ type: 'SET_SCENE', payload: { description: result.description, actions: [] } });
+                appendToLog(newEnemies.length > 0 ? newEnemies[0].description : 'An unseen foe strikes!');
+                dispatch({ type: 'SET_GAME_STATE', payload: GameState.COMBAT });
+                dispatch({ type: 'SET_PLAYER_TURN', payload: true });
+            });
         }
     }, [state.player, state.actions, appendToLog, handleFoundItem, handleFallback, createEventPopup, dispatch, operationIdRef, isLocalCombatRef]);
+
+    const handleImprovise = useCallback(async (input: string) => {
+        if (!input.trim()) return;
+        const opId = ++operationIdRef.current;
+        dispatch({ type: 'SET_GAME_STATE', payload: GameState.LOADING });
+        appendToLog(`You attempt to: "${input}"`);
+
+        const result = await generateImproviseResult(state.player, input);
+        handleSceneResult(result, opId, `Improvised: "${input}"`);
+    }, [state.player, appendToLog, dispatch, operationIdRef, handleSceneResult]);
 
     const handleAction = useCallback(async (action: GameAction) => {
         const opId = ++operationIdRef.current;
@@ -166,80 +167,11 @@ export const useExplorationSystem = ({
         dispatch({ type: 'SET_GAME_STATE', payload: GameState.LOADING });
         appendToLog(`You decide to ${action.label.toLowerCase()}...`);
     
-        if (action.type === 'encounter') {
-            // Optimization: Local encounter, save scene state
-            isLocalCombatRef.current = true;
-            dispatch({ type: 'SAVE_SCENE_STATE' });
-
-            // Note: generateEncounter is now synchronous/local
-            const { enemies: newEnemies, isFallback } = await generateEncounter(state.player);
-            if (opId !== operationIdRef.current) return;
-
-            if (isFallback) handleFallback();
-            const enemyNames = newEnemies.map(e => e.name).join(', ');
-            dispatch({ type: 'SET_ENEMIES', payload: newEnemies });
-            dispatch({ type: 'SET_SCENE', payload: { description: `A wild ${enemyNames} appeared!`, actions: [] } });
-            appendToLog(newEnemies.length > 0 ? newEnemies[0].description : 'A mysterious force blocks your way.');
-            dispatch({ type: 'SET_GAME_STATE', payload: GameState.COMBAT });
-            dispatch({ type: 'SET_PLAYER_TURN', payload: true });
-        } else if (action.type === 'explore') {
+        if (action.type === 'encounter' || action.type === 'explore') {
             const result = await generateExploreResult(state.player, action);
-            if (opId !== operationIdRef.current) return;
-
-            if (result.isFallback) handleFallback();
-    
-            appendToLog(result.description);
-            
-            // Add to narrative history for continuity
-            dispatch({ type: 'ADD_NARRATIVE_HISTORY', payload: `Action: "${action.label}" -> ${result.description}` });
-            
-            if (result.questUpdate) {
-                const quest = state.player.journal.quests.find(q => q.id === result.questUpdate?.questId);
-                if (quest) {
-                    dispatch({ type: 'UPDATE_QUEST_STATUS', payload: { questId: result.questUpdate.questId, status: result.questUpdate.status, outcome: result.questUpdate.outcome, rewardText: result.questUpdate.rewardText } });
-                    dispatch({ type: 'ADD_NARRATIVE_HISTORY', payload: `Quest ${result.questUpdate.status}: ${quest.title}` });
-                    createEventPopup(`Quest ${result.questUpdate.status === 'COMPLETED' ? 'Complete' : 'Failed'}: ${quest.title}`, 'quest');
-                }
-            }
-    
-            if (result.nextSceneType === 'EXPLORATION') {
-                if (state.worldData && state.playerLocationId) {
-                    dispatch({ type: 'SET_SCENE', payload: { description: result.description, actions: result.localActions || [] } });
-                    if (result.foundItem) {
-                        handleFoundItem(result.foundItem);
-                    }
-                }
-                dispatch({ type: 'SET_GAME_STATE', payload: GameState.EXPLORING });
-
-            } else if (result.nextSceneType === 'SOCIAL') {
-                const encounter: SocialEncounter = {
-                    description: result.description,
-                    choices: result.socialChoices || []
-                };
-                if(encounter.choices.length > 0) {
-                    dispatch({ type: 'SET_SOCIAL_ENCOUNTER', payload: encounter });
-                } else {
-                    dispatch({ type: 'SET_SCENE', payload: { description: result.description, actions: state.actions } });
-                    dispatch({ type: 'SET_GAME_STATE', payload: GameState.EXPLORING });
-                }
-    
-            } else if (result.nextSceneType === 'COMBAT') {
-                // Optimization: Local encounter, save scene state
-                isLocalCombatRef.current = true;
-                dispatch({ type: 'SAVE_SCENE_STATE' });
-
-                const { enemies: newEnemies, isFallback } = await generateEncounter(state.player);
-                if (opId !== operationIdRef.current) return;
-
-                if (isFallback) handleFallback();
-                dispatch({ type: 'SET_ENEMIES', payload: newEnemies });
-                dispatch({ type: 'SET_SCENE', payload: { description: result.description, actions: [] } });
-                appendToLog(newEnemies.length > 0 ? newEnemies[0].description : 'An unseen foe strikes!');
-                dispatch({ type: 'SET_GAME_STATE', payload: GameState.COMBAT });
-                dispatch({ type: 'SET_PLAYER_TURN', payload: true });
-            }
+            handleSceneResult(result, opId, `Action: "${action.label}"`);
         }
-    }, [state.player, state.worldData, state.playerLocationId, state.actions, appendToLog, handleFoundItem, handleFallback, createEventPopup, dispatch, operationIdRef, isLocalCombatRef]);
+    }, [state.player, appendToLog, handleFallback, dispatch, operationIdRef, isLocalCombatRef, handleSceneResult]);
 
     const handleSocialChoice = useCallback(async (choice: SocialChoice) => {
         const opId = ++operationIdRef.current;
@@ -321,6 +253,14 @@ export const useExplorationSystem = ({
                         dispatch({ type: 'SET_GAME_STATE', payload: GameState.COMBAT });
                         dispatch({ type: 'SET_PLAYER_TURN', payload: true });
                     } else {
+                        // Check Cache First
+                        if (state.locationCache && state.locationCache[newLocation.id]) {
+                            const cached = state.locationCache[newLocation.id];
+                            dispatch({ type: 'SET_SCENE', payload: { description: cached.description, actions: cached.localActions } });
+                            dispatch({ type: 'SET_GAME_STATE', payload: GameState.EXPLORING });
+                            return;
+                        }
+
                         const { description, actions: localActions, foundItem, isFallback } = await generateScene(state.player, newLocation);
                         if (opId !== operationIdRef.current) return;
 
@@ -329,31 +269,79 @@ export const useExplorationSystem = ({
                         dispatch({ type: 'SET_SCENE', payload: { description, actions: localActions } });
 
                         if (foundItem) handleFoundItem(foundItem);
+                        
+                        // Cache the result if not fallback
+                        if (!isFallback) {
+                            dispatch({ type: 'CACHE_LOCATION', payload: { id: newLocation.id, data: { description, localActions } } });
+                        }
+
                         dispatch({ type: 'SET_GAME_STATE', payload: GameState.EXPLORING });
                     }
                 };
                 move();
             }
         }
-    }, [state.playerLocationId, state.worldData, state.player, appendToLog, handleFoundItem, handleFallback, dispatch, operationIdRef, isInitialMount, prevPlayerLocationId, isLocalCombatRef]);
+    }, [state.playerLocationId, state.worldData, state.player, state.locationCache, appendToLog, handleFoundItem, handleFallback, dispatch, operationIdRef, isInitialMount, prevPlayerLocationId, isLocalCombatRef]);
 
     // Compute available actions including movement
     const currentSceneActions = useMemo(() => {
-        let actions = [...state.actions];
+        // 1. Get Interaction Actions (Limit to 2)
+        let actions = state.actions.filter(a => a.type === 'explore' || a.type === 'encounter').slice(0, 2);
         
+        // Ensure we have 2 interaction options if possible (fallback if AI returned fewer)
+        if (actions.length < 2) {
+            actions.push({ label: "Inspect surroundings", type: "explore" });
+        }
+        if (actions.length < 2) {
+             actions.push({ label: "Listen for danger", type: "encounter" });
+        }
+
+        // 2. Get Travel Actions (Limit/Fill to 2)
         if (state.worldData && state.playerLocationId) {
             const connections = state.worldData.connections.filter(c => c.from === state.playerLocationId);
+            const travelActions: GameAction[] = [];
+
+            // Add real connections
             connections.forEach(conn => {
                 const targetLocation = state.worldData!.locations.find(l => l.id === conn.to);
                 if (targetLocation) {
-                    actions.push({
+                    travelActions.push({
                         label: `Travel to ${targetLocation.name}`,
                         type: 'move',
                         targetLocationId: targetLocation.id
                     });
                 }
             });
+
+            // Fill with "Wilderness" or "Distant" travel if needed
+            while (travelActions.length < 2) {
+                 // Try to find a random location we aren't connected to
+                 const otherLocations = state.worldData.locations.filter(l => 
+                    l.id !== state.playerLocationId && 
+                    !travelActions.some(a => a.targetLocationId === l.id)
+                 );
+                 
+                 if (otherLocations.length > 0) {
+                     const randomLoc = otherLocations[Math.floor(Math.random() * otherLocations.length)];
+                     travelActions.push({
+                        label: `Journey to ${randomLoc.name}`,
+                        type: 'move',
+                        targetLocationId: randomLoc.id
+                    });
+                 } else {
+                     // Fallback if world is tiny (shouldn't happen with 6-8 locs)
+                     travelActions.push({
+                         label: "Wander into the Wilds",
+                         type: 'explore' // effectively just an explore that looks like travel? Or maybe we make it a move to self?
+                         // Let's just make it an explore for now to avoid breaking move logic
+                     });
+                 }
+            }
+
+            // Take exactly 2
+            actions = [...actions, ...travelActions.slice(0, 2)];
         }
+        
         return actions;
     }, [state.actions, state.worldData, state.playerLocationId]);
 

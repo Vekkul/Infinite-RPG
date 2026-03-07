@@ -166,8 +166,6 @@ export const CombatView: React.FC<CombatViewProps> = ({ storyText, enemies, play
                     
                     let canAfford = true;
                     if (details.resource === 'MP' && (player.mp < details.cost)) canAfford = false;
-                    if (details.resource === 'EP' && (player.ep < details.cost)) canAfford = false;
-                    if (details.resource === 'SP' && (player.sp < details.cost)) canAfford = false;
 
                     let colorClass = "bg-gray-700 border-gray-500";
                     if (details.element === Element.FIRE) colorClass = "bg-orange-700 border-orange-500 hover:bg-orange-600";

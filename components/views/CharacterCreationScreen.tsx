@@ -167,9 +167,9 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
                              <span className={`font-bold text-sm ${remainingPoints > 0 ? 'text-yellow-400' : 'text-gray-500'}`}>Points Left: {remainingPoints}</span>
                         </div>
                         <div className="space-y-3">
-                            {renderStatRow("Strength", "strength", "Increases HP, Stamina, and Attack")}
+                            {renderStatRow("Strength", "strength", "Increases HP and Attack")}
                             {renderStatRow("Intelligence", "intelligence", "Increases MP and Magic Power")}
-                            {renderStatRow("Agility", "agility", "Increases Energy, Defense, and Crit")}
+                            {renderStatRow("Agility", "agility", "Increases Defense and Crit")}
                             {renderStatRow("Charisma", "charisma", "Increases Luck and Social Success")}
                         </div>
                     </div>

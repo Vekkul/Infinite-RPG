@@ -2,7 +2,7 @@
 import { AppState, Action, GameState, Item, Player, Enemy, RewardType, MapLocation, PlayerAbility, StatusEffect, StatusEffectType, Element, ItemType, EquipmentSlot, Quest, Attributes } from '../types';
 import { initialState } from './initialState';
 import { PLAYER_ABILITIES, ELEMENTAL_RESISTANCES, STATUS_EFFECT_CONFIG } from '../constants';
-import { combineItems } from '../services/craftingService';
+import { getDeterministicResult } from '../services/craftingService';
 
 const appendToLog = (log: string[], message: string): string[] => {
     return [...log.slice(-20), message];
@@ -56,12 +56,6 @@ const calculatePlayerDerivedStats = (player: Player): Partial<Player> => {
     // MP: Intelligence * 5
     const maxMp = intelligence * 5;
     
-    // SP: Strength * 3
-    const maxSp = strength * 3;
-    
-    // EP: Agility * 4
-    const maxEp = agility * 4;
-
     // Attack: 2 + (STR * 1.5) + (Level * 2)
     let attack = Math.floor(2 + (strength * 1.5) + (level * 2));
     
@@ -80,11 +74,9 @@ const calculatePlayerDerivedStats = (player: Player): Partial<Player> => {
     }
 
     return { 
-        maxHp, maxMp, maxSp, maxEp, attack, defense, luck,
+        maxHp, maxMp, attack, defense, luck,
         hp: player.hp > maxHp ? maxHp : player.hp, // Clamp logic usually handled elsewhere, but safe to default
         mp: player.mp > maxMp ? maxMp : player.mp,
-        sp: player.sp > maxSp ? maxSp : player.sp,
-        ep: player.ep > maxEp ? maxEp : player.ep
     };
 };
 
@@ -117,13 +109,11 @@ const handleLevelUp = (currentPlayer: Player): { updatedPlayer: Player; logs: st
         ...derivedStats,
         hp: derivedStats.maxHp!,
         mp: derivedStats.maxMp!,
-        sp: derivedStats.maxSp!,
-        ep: derivedStats.maxEp!,
     };
 
     const logs = [
         `LEVEL UP! You are now level ${newLevel}!`,
-        `Your attributes increased! HP, MP, SP, EP, ATK, DEF, and Luck have improved.`
+        `Your attributes increased! HP, MP, ATK, DEF, and Luck have improved.`
     ];
 
     return { updatedPlayer, logs };
@@ -175,8 +165,6 @@ export const reducer = (state: AppState, action: Action): AppState => {
             ...derived,
             hp: derived.maxHp!,
             mp: derived.maxMp!,
-            ep: derived.maxEp!,
-            sp: derived.maxSp!
         };
 
         return {
@@ -198,6 +186,7 @@ export const reducer = (state: AppState, action: Action): AppState => {
         log: appendToLog(action.payload.log, 'Game Loaded.'),
         worldData: action.payload.worldData,
         playerLocationId: action.payload.playerLocationId,
+        locationCache: action.payload.locationCache || {},
         enemies: [],
         gameState: GameState.EXPLORING,
       };
@@ -229,14 +218,17 @@ export const reducer = (state: AppState, action: Action): AppState => {
 
     case 'MOVE_PLAYER': {
         if (!state.worldData) return state;
-        const newWorldData = JSON.parse(JSON.stringify(state.worldData));
-        const newLocationIndex = newWorldData.locations.findIndex((l: MapLocation) => l.id === action.payload);
-        if (newLocationIndex !== -1) {
-            newWorldData.locations[newLocationIndex].isExplored = true;
-        }
+        
+        const newLocations = state.worldData.locations.map(l => 
+            l.id === action.payload ? { ...l, isExplored: true } : l
+        );
+
         return {
             ...state,
-            worldData: newWorldData,
+            worldData: {
+                ...state.worldData,
+                locations: newLocations
+            },
             playerLocationId: action.payload,
         };
     }
@@ -274,8 +266,6 @@ export const reducer = (state: AppState, action: Action): AppState => {
         
         // 1. Consume Resources
         if (abilityDetails.resource === 'MP') newPlayerState.mp = (newPlayerState.mp || 0) - abilityDetails.cost;
-        if (abilityDetails.resource === 'EP') newPlayerState.ep = (newPlayerState.ep || 0) - abilityDetails.cost;
-        if (abilityDetails.resource === 'SP') newPlayerState.sp = (newPlayerState.sp || 0) - abilityDetails.cost;
         
         // 2. Apply Healing (Self)
         if (abilityDetails.healAmount && abilityDetails.healAmount > 0) {
@@ -400,15 +390,11 @@ export const reducer = (state: AppState, action: Action): AppState => {
             inventory: newInventory,
             hp: Math.min(state.player.maxHp, state.player.hp + regen.hp),
             mp: Math.min(state.player.maxMp || 0, (state.player.mp || 0) + regen.mp),
-            ep: Math.min(state.player.maxEp || 0, (state.player.ep || 0) + regen.ep),
-            sp: Math.min(state.player.maxSp || 0, (state.player.sp || 0) + regen.sp),
             statusEffects: [], 
         };
 
         if (regen.hp > 0) newLog = appendToLog(newLog, `Recovered ${regen.hp} HP.`);
         if (regen.mp > 0) newLog = appendToLog(newLog, `Recovered ${regen.mp} MP.`);
-        if (regen.ep > 0) newLog = appendToLog(newLog, `Recovered ${regen.ep} EP.`);
-        if (regen.sp > 0) newLog = appendToLog(newLog, `Recovered ${regen.sp} Stamina.`);
         
         if (updatedPlayer.xp >= updatedPlayer.xpToNextLevel) {
             const { updatedPlayer: leveledUpPlayer, logs: levelUpLogs } = handleLevelUp(updatedPlayer);
@@ -499,7 +485,7 @@ export const reducer = (state: AppState, action: Action): AppState => {
     }
 
     case 'COMBINE_ITEMS': {
-        const { item1Index, item2Index } = action.payload;
+        const { item1Index, item2Index, result: providedResult } = action.payload;
         let newInventory = [...state.player.inventory];
         let newLog = [...state.log];
 
@@ -508,37 +494,12 @@ export const reducer = (state: AppState, action: Action): AppState => {
 
         if (!item1 || !item2) return state;
 
-        const result = combineItems(item1, item2);
+        const result = providedResult || getDeterministicResult(item1, item2);
 
         if (result) {
-            // Remove ingredients
-            // We need to handle indices carefully. Remove higher index first to avoid shifting.
-            const firstToRemove = Math.max(item1Index, item2Index);
-            const secondToRemove = Math.min(item1Index, item2Index);
-
-            // Decrement quantity or remove
-            const item1Stack = { ...newInventory[firstToRemove] };
-            item1Stack.quantity -= 1;
-            if (item1Stack.quantity <= 0) {
-                newInventory.splice(firstToRemove, 1);
-            } else {
-                newInventory[firstToRemove] = item1Stack;
-            }
-
-            // Re-find second item index if array shifted? 
-            // Actually, if we use splice, indices change.
-            // Better approach: 
-            // 1. Create copies of items to decrement.
-            // 2. Filter out 0 quantity items at the end.
-            
-            // Let's restart logic for inventory update to be safe
-            newInventory = [...state.player.inventory];
-            const idx1 = item1Index;
-            const idx2 = item2Index;
-
             // Decrement both
-            newInventory[idx1] = { ...newInventory[idx1], quantity: newInventory[idx1].quantity - 1 };
-            newInventory[idx2] = { ...newInventory[idx2], quantity: newInventory[idx2].quantity - 1 };
+            newInventory[item1Index] = { ...newInventory[item1Index], quantity: newInventory[item1Index].quantity - 1 };
+            newInventory[item2Index] = { ...newInventory[item2Index], quantity: newInventory[item2Index].quantity - 1 };
 
             // Add result
             newInventory = addItemToInventory(newInventory, result);
@@ -834,6 +795,15 @@ export const reducer = (state: AppState, action: Action): AppState => {
             };
         }
         return state;
+
+    case 'CACHE_LOCATION':
+        return {
+            ...state,
+            locationCache: {
+                ...state.locationCache,
+                [action.payload.id]: action.payload.data
+            }
+        };
 
     default:
       return state;

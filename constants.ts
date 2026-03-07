@@ -17,10 +17,6 @@ export const INITIAL_PLAYER_STATS: Player = {
   maxHp: 50,
   mp: 20,
   maxMp: 20,
-  ep: 20,
-  maxEp: 20,
-  sp: 20,
-  maxSp: 20,
   attack: 10,
   defense: 1, 
   luck: 5,
@@ -43,7 +39,7 @@ export const INITIAL_PLAYER_STATS: Player = {
 export interface AbilityDetails {
     name: PlayerAbility;
     cost: number;
-    resource: 'MP' | 'EP' | 'SP' | 'None';
+    resource: 'MP' | 'None';
     description: string;
     element: Element;
     damageMultiplier: number; // 0 if non-damaging
@@ -57,7 +53,7 @@ export const PLAYER_ABILITIES: Record<PlayerAbility, AbilityDetails> = {
     [PlayerAbility.BEFRIEND]: {
         name: PlayerAbility.BEFRIEND,
         cost: 10,
-        resource: 'EP',
+        resource: 'MP',
         description: 'Attempt to befriend a non-humanoid entity. Success depends on Luck.',
         element: Element.NONE,
         damageMultiplier: 0,
@@ -66,8 +62,8 @@ export const PLAYER_ABILITIES: Record<PlayerAbility, AbilityDetails> = {
     [PlayerAbility.EARTHEN_STRIKE]: {
         name: PlayerAbility.EARTHEN_STRIKE,
         cost: 12,
-        resource: 'SP',
-        description: 'A heavy blow using Stamina. Grants a temporary defense boost.',
+        resource: 'MP',
+        description: 'A heavy blow using Mana. Grants a temporary defense boost.',
         element: Element.EARTH,
         damageMultiplier: 1.2,
         statusEffect: StatusEffectType.EARTH_ARMOR, 
@@ -76,7 +72,7 @@ export const PLAYER_ABILITIES: Record<PlayerAbility, AbilityDetails> = {
     [PlayerAbility.POWER_SLASH]: {
         name: PlayerAbility.POWER_SLASH,
         cost: 15,
-        resource: 'SP',
+        resource: 'MP',
         description: 'A devastating physical attack that can crush defenses.',
         element: Element.NONE,
         damageMultiplier: 1.8,
@@ -121,8 +117,8 @@ export const PLAYER_ABILITIES: Record<PlayerAbility, AbilityDetails> = {
     [PlayerAbility.LIGHTNING_STRIKE]: {
         name: PlayerAbility.LIGHTNING_STRIKE,
         cost: 10,
-        resource: 'EP',
-        description: 'A rapid strike using Energy. Chance to Shock.',
+        resource: 'MP',
+        description: 'A rapid strike using Mana. Chance to Shock.',
         element: Element.LIGHTNING,
         damageMultiplier: 1.3,
         statusEffect: StatusEffectType.SHOCK,
@@ -131,7 +127,7 @@ export const PLAYER_ABILITIES: Record<PlayerAbility, AbilityDetails> = {
     [PlayerAbility.QUICK_STAB]: {
         name: PlayerAbility.QUICK_STAB,
         cost: 5,
-        resource: 'EP',
+        resource: 'MP',
         description: 'A very fast, low cost attack.',
         element: Element.NONE,
         damageMultiplier: 1.1, 

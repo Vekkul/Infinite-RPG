@@ -1,6 +1,8 @@
 
-import { useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { GameState, Item, ItemType, EquipmentSlot, EventPopup, Player } from '../types';
+import { getDeterministicResult } from '../services/craftingService';
+import { generateCraftingResult } from '../services/geminiService';
 
 interface UseInventorySystemProps {
     state: {
@@ -51,9 +53,42 @@ export const useInventorySystem = ({ state, dispatch, appendToLog, createEventPo
        }
     }, [state.gameState, dispatch]);
 
-    const handleCombineItems = useCallback((item1Index: number, item2Index: number) => {
-        dispatch({ type: 'COMBINE_ITEMS', payload: { item1Index, item2Index } });
-    }, [dispatch]);
+    const handleCombineItems = useCallback(async (item1Index: number, item2Index: number) => {
+        const item1 = state.player.inventory[item1Index];
+        const item2 = state.player.inventory[item2Index];
+
+        if (!item1 || !item2) return;
+
+        // 1. Try Deterministic
+        const deterministicResult = getDeterministicResult(item1, item2);
+        if (deterministicResult) {
+            dispatch({ type: 'COMBINE_ITEMS', payload: { item1Index, item2Index } });
+            createEventPopup(`Crafted: ${deterministicResult.name}`, 'item');
+            if (state.gameState === GameState.COMBAT) {
+                dispatch({ type: 'SET_PLAYER_TURN', payload: false });
+            }
+            return;
+        }
+
+        // 2. Fallback to AI
+        appendToLog(`Experimenting with ${item1.name} and ${item2.name}...`);
+        
+        const aiResult = await generateCraftingResult(item1, item2);
+        
+        if (aiResult) {
+             dispatch({ type: 'COMBINE_ITEMS', payload: { item1Index, item2Index, result: aiResult } });
+             createEventPopup(`Crafted: ${aiResult.name}`, 'item');
+             if (state.gameState === GameState.COMBAT) {
+                dispatch({ type: 'SET_PLAYER_TURN', payload: false });
+             }
+        } else {
+             appendToLog("The combination failed to produce anything useful.");
+             // Failed craft still takes time? Maybe yes.
+             if (state.gameState === GameState.COMBAT) {
+                dispatch({ type: 'SET_PLAYER_TURN', payload: false });
+             }
+        }
+    }, [state.player.inventory, state.gameState, dispatch, appendToLog, createEventPopup]);
 
     const handleFoundItem = useCallback((itemDef: Omit<Item, 'quantity'>) => {
         appendToLog(`You found a ${itemDef.name}!`);

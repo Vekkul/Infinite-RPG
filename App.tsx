@@ -31,9 +31,7 @@ const PlayerStatusCard = React.memo(({ player }: { player: any }) => {
     const { assetUrl } = useAsset(player.portrait);
     
     // Determine which bars to show based on max stats
-    const showMana = player.maxMp > 15; // Arbitrary threshold to hide bar if stat is base/low
-    const showEnergy = player.maxEp > 15;
-    const showStamina = player.maxSp > 15;
+    const showMana = player.maxMp > 0; 
 
     return (
         <div className="bg-gray-800/90 p-2 md:p-3 rounded-lg border-2 border-blue-500 shadow-lg flex flex-row gap-4 items-stretch w-full max-w-6xl mx-auto">
@@ -75,22 +73,6 @@ const PlayerStatusCard = React.memo(({ player }: { player: any }) => {
                             <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${(player.mp! / player.maxMp!) * 100}%` }}></div>
                              <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md tracking-wider">
                                 {player.mp}/{player.maxMp} MP
-                            </div>
-                        </div>
-                    )}
-                    {showEnergy && (
-                         <div className="w-full bg-black/50 rounded-full h-3 md:h-4 border border-gray-600 relative overflow-hidden">
-                            <div className="bg-green-500 h-full transition-all duration-500" style={{ width: `${(player.ep! / player.maxEp!) * 100}%` }}></div>
-                             <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md tracking-wider">
-                                {player.ep}/{player.maxEp} EP
-                            </div>
-                        </div>
-                    )}
-                     {showStamina && (
-                         <div className="w-full bg-black/50 rounded-full h-3 md:h-4 border border-gray-600 relative overflow-hidden">
-                            <div className="bg-amber-600 h-full transition-all duration-500" style={{ width: `${(player.sp! / player.maxSp!) * 100}%` }}></div>
-                             <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[10px] text-white font-bold drop-shadow-md tracking-wider">
-                                {player.sp}/{player.maxSp} SP
                             </div>
                         </div>
                     )}
@@ -215,28 +197,26 @@ const App: React.FC = () => {
     const ActionButtons = React.memo(() => (
         <div className="flex items-center gap-2 w-full max-w-4xl mx-auto overflow-x-auto whitespace-nowrap pb-1 no-scrollbar">
             {(gameState === GameState.EXPLORING || gameState === GameState.COMBAT || gameState === GameState.SOCIAL_ENCOUNTER || gameState === GameState.LOADING) && (
-                <button 
-                    onClick={() => setIsInventoryOpen(true)} 
-                    className="flex-shrink-0 flex items-center justify-center bg-purple-700 hover:bg-purple-600 disabled:opacity-50 text-white p-3 rounded-lg border-2 border-purple-500 active:scale-95 transition-all w-14 h-14"
-                    disabled={(!isPlayerTurn && gameState === GameState.COMBAT) || gameState === GameState.LOADING}
-                >
-                    <BagIcon className="w-6 h-6" />
-                </button>
-            )}
-            <button 
-                onClick={() => setIsJournalOpen(true)}
-                className="flex-shrink-0 flex items-center justify-center bg-amber-700 hover:bg-amber-600 text-white p-3 rounded-lg border-2 border-amber-500 active:scale-95 transition-all w-14 h-14"
-            >
-                <StarIcon className="w-6 h-6"/>
-            </button>
-            <button 
-                onClick={() => setIsLogOpen(true)}
-                className="flex-shrink-0 flex items-center justify-center bg-yellow-700 hover:bg-yellow-600 text-white p-3 rounded-lg border-2 border-yellow-500 active:scale-95 transition-all w-14 h-14"
-            >
-                <BookIcon className="w-6 h-6"/>
-            </button>
-            {(gameState === GameState.EXPLORING || gameState === GameState.LOADING) && (
                 <>
+                    <button 
+                        onClick={() => setIsInventoryOpen(true)} 
+                        className="flex-shrink-0 flex items-center justify-center bg-purple-700 hover:bg-purple-600 disabled:opacity-50 text-white p-3 rounded-lg border-2 border-purple-500 active:scale-95 transition-all w-14 h-14"
+                        disabled={(!isPlayerTurn && gameState === GameState.COMBAT) || gameState === GameState.LOADING}
+                    >
+                        <BagIcon className="w-6 h-6" />
+                    </button>
+                    <button 
+                        onClick={() => setIsJournalOpen(true)}
+                        className="flex-shrink-0 flex items-center justify-center bg-amber-700 hover:bg-amber-600 text-white p-3 rounded-lg border-2 border-amber-500 active:scale-95 transition-all w-14 h-14"
+                    >
+                        <StarIcon className="w-6 h-6"/>
+                    </button>
+                    <button 
+                        onClick={() => setIsLogOpen(true)}
+                        className="flex-shrink-0 flex items-center justify-center bg-yellow-700 hover:bg-yellow-600 text-white p-3 rounded-lg border-2 border-yellow-500 active:scale-95 transition-all w-14 h-14"
+                    >
+                        <BookIcon className="w-6 h-6"/>
+                    </button>
                     <button 
                         onClick={() => setIsMapOpen(true)} 
                         className="flex-shrink-0 flex items-center justify-center bg-teal-700 hover:bg-teal-600 text-white p-3 rounded-lg border-2 border-teal-500 active:scale-95 transition-all w-14 h-14"
@@ -246,8 +226,8 @@ const App: React.FC = () => {
                     </button>
                     <button 
                         onClick={saveGame} 
-                        disabled={isSaving || gameState === GameState.LOADING}
-                        className={`flex-shrink-0 flex items-center justify-center p-3 rounded-lg border-2 active:scale-95 transition-all w-14 h-14 ${isSaving ? 'bg-green-600 border-green-400 opacity-80 cursor-not-allowed' : 'bg-indigo-700 hover:bg-indigo-600 border-indigo-500 text-white'}`}
+                        disabled={isSaving || gameState === GameState.LOADING || gameState === GameState.COMBAT}
+                        className={`flex-shrink-0 flex items-center justify-center p-3 rounded-lg border-2 active:scale-95 transition-all w-14 h-14 ${isSaving ? 'bg-green-600 border-green-400 opacity-80 cursor-not-allowed' : 'bg-indigo-700 hover:bg-indigo-600 border-indigo-500 text-white'} disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                         {isSaving ? <span className="text-xs font-bold animate-pulse">...</span> : <SaveIcon className="w-6 h-6" />}
                     </button>

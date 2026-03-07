@@ -104,9 +104,9 @@ export interface PlayerJournal {
 }
 
 export interface Attributes {
-    strength: number; // HP & SP & Attack
+    strength: number; // HP & Attack
     intelligence: number; // MP & Magic Attack
-    agility: number; // EP & Defense/Crit
+    agility: number; // Defense/Crit
     charisma: number; // Luck & Social Success
 }
 
@@ -123,10 +123,6 @@ export interface Player {
   maxHp: number;
   mp: number; 
   maxMp: number;
-  ep: number; 
-  maxEp: number;
-  sp: number; 
-  maxSp: number;
   
   attack: number;
   defense: number; 
@@ -234,6 +230,7 @@ export interface SaveData {
     log: string[];
     worldData: WorldData;
     playerLocationId: string;
+    locationCache: Record<string, LocationCacheEntry>;
 }
 
 export interface SaveMetadata {
@@ -262,6 +259,11 @@ export interface EventPopup {
 
 // --- Reducer State & Actions ---
 
+export interface LocationCacheEntry {
+    description: string;
+    localActions: GameAction[];
+}
+
 export interface AppState {
   gameState: GameState;
   player: Player;
@@ -273,6 +275,7 @@ export interface AppState {
   socialEncounter: SocialEncounter | null;
   worldData: WorldData | null;
   playerLocationId: string | null;
+  locationCache: Record<string, LocationCacheEntry>; // New Cache
   preCombatState: { description: string; actions: GameAction[] } | null;
   combatResult: { xp: number; loot: Omit<Item, 'quantity'>[]; text: string } | null;
 }
@@ -293,13 +296,13 @@ export type Action =
   | { type: 'UPDATE_PLAYER'; payload: Partial<Player> }
   | { type: 'ADD_LOG'; payload: string }
   | { type: 'ADD_ITEM_TO_INVENTORY'; payload: Omit<Item, 'quantity'> }
-  | { type: 'PROCESS_COMBAT_VICTORY'; payload: { xpGained: number; loot: Omit<Item, 'quantity'>[]; regen: {hp: number; mp: number; ep: number; sp: number; } } }
+  | { type: 'PROCESS_COMBAT_VICTORY'; payload: { xpGained: number; loot: Omit<Item, 'quantity'>[]; regen: {hp: number; mp: number; } } }
   | { type: 'SET_COMBAT_RESULT'; payload: { xp: number; loot: Omit<Item, 'quantity'>[]; text: string } }
   | { type: 'ACKNOWLEDGE_VICTORY' }
   | { type: 'USE_ITEM'; payload: { inventoryIndex: number } }
   | { type: 'EQUIP_ITEM'; payload: { inventoryIndex: number } }
   | { type: 'UNEQUIP_ITEM'; payload: { slot: EquipmentSlot } }
-  | { type: 'COMBINE_ITEMS'; payload: { item1Index: number; item2Index: number } }
+  | { type: 'COMBINE_ITEMS'; payload: { item1Index: number; item2Index: number; result?: Item } }
   | { type: 'ENEMY_ACTION_HEAL'; payload: { enemyIndex: number; healAmount: number } }
   | { type: 'ENEMY_ACTION_DRAIN_LIFE', payload: { enemyIndex: number; damage: number } }
   | { type: 'ENEMY_ACTION_SHIELD'; payload: { enemyIndex: number } }
@@ -314,4 +317,5 @@ export type Action =
   | { type: 'ADD_JOURNAL_FLAG'; payload: string }
   | { type: 'ADD_NARRATIVE_HISTORY'; payload: string } // New Action
   | { type: 'SAVE_SCENE_STATE' }
-  | { type: 'RESTORE_SCENE_STATE'; payload?: { appendText: string } };
+  | { type: 'RESTORE_SCENE_STATE'; payload?: { appendText: string } }
+  | { type: 'CACHE_LOCATION'; payload: { id: string; data: LocationCacheEntry } };
